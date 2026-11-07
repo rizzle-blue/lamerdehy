@@ -8,14 +8,14 @@ Source: [`packages/sandbox/sandbox/src/index.ts`](../../packages/sandbox/sandbox
 
 ## Modes and enforcement
 
-`SandboxMode` governs filesystem effects only. `read-only` asks the backend to deny writes — the POSIX runners additionally grant the `/dev/null` sink their shells require, while the Windows ACL runner grants no explicit writable root and reports partial enforcement for its ambient ACL gaps; `workspace-write` permits writes under the workspace root, explicit extra directories, and the backend's promised temp area; `danger-full-access` bypasses confinement. Network and process visibility are outside this vocabulary.
+`SandboxMode` governs filesystem effects only. `read-only` asks the backend to deny writes — the POSIX runners additionally grant the `/dev/null` sink their shells require, while the Windows ACL runner grants no explicit writable root and reports partial enforcement for its ambient ACL gaps; `workspace-write` permits writes under the workspace root, explicit extra directories, and the backend's promised temp area; `danger-full-access` bypasses confinement. Read denies, protected write paths, and network are separate optional policy fields, described below; process visibility is outside this vocabulary.
 
 ```ts type-equiv
 /**
  * File-effect policy for confined processes. `read-only` permits only required
  * sinks such as `/dev/null`; `workspace-write` also permits the workspace,
- * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement. Network
- * and process visibility are outside this vocabulary.
+ * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement.
+ * Read denies, protected write paths, and network are separate optional policy fields.
  */
 type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 ```
@@ -68,8 +68,30 @@ interface SandboxExecutionPolicy {
    * for agentless calls, which fall back to per-call backend state.
    */
   sessionId?: SessionId
+  /**
+   * Absolute paths the process must not read. Absence or an empty list denies
+   * nothing. Writable roots and {@link allowRead} entries beneath a denied path
+   * stay readable. A provider that cannot enforce read denies refuses the policy.
+   */
+  denyRead?: readonly string[]
+  /** Absolute paths re-allowed for reading beneath a {@link denyRead} entry; meaningless without one. */
+  allowRead?: readonly string[]
+  /**
+   * Absolute paths inside writable roots that stay write-denied, whether or not
+   * they exist yet. Absence or an empty list denies nothing. A provider that
+   * cannot enforce write denies refuses the policy.
+   */
+  denyWrite?: readonly string[]
+  /**
+   * Network reachable by the process. Absence leaves network unrestricted; a
+   * present policy permits only its listed hosts, so an empty list denies all
+   * network. A provider that cannot enforce it refuses the policy.
+   */
+  network?: SandboxNetworkPolicy
 }
 ```
+
+`protectedWritePaths(roots)` and `credentialReadDenyPaths(home, dshHome)` return the built-in lists a consumer may pass as `denyWrite` and `denyRead`: shell startup files, git hooks and config, editor and agent configuration, and instruction files under each writable root; and tool credential stores under the OS home plus the whole DSH home. A consumer opts in; the seam applies neither list on its own, because general shell work legitimately edits files such as `AGENTS.md`. `requestedRestrictions`, `assertRestrictionsSupported`, and `NO_RESTRICTIONS` let a provider declare and enforce what it supports.
 
 `ctx.sandboxPolicy.resolve()` accepts the active session and, for an approved retry, an explicit mode. The service owns precedence and root fallback so bash and fs do not repeat it.
 
@@ -153,14 +175,30 @@ interface ConfinedArgv {
    * command never ran, while denial means confinement worked and blocked it.
    */
   runnerFailureRules: readonly RunnerFailureRule[]
+  /**
+   * Variables the consumer overlays on the child's environment, such as the
+   * network proxy settings a policy's {@link SandboxExecutionPolicy.network} needs.
+   * Empty when the backend needs none.
+   */
+  env: Readonly<Record<string, string>>
+  /**
+   * Release per-call backend state, such as a registered host list or mount
+   * points. The consumer awaits it once after the child exits, after a spawn
+   * failure, or when it abandons the spawn; it never rejects.
+   */
+  release: () => Promise<void>
 }
 ```
 
 The [local provider](../../packages/sandbox/sandbox-local/README.md) owns operator configuration and maps its runner dialect into these rules. The [sandboxed bash consumer](../../packages/shell/bash-sandbox/README.md) owns spawn and result attribution.
 
+`env` and `release` carry per-call backend state. A consumer overlays `env` last on the child's environment and awaits `release()` once, after the child exits, after the spawn fails, or when it abandons a confinement it prepared but never spawned. A consumer whose child outlives the call, such as a persistent terminal, releases when that child ends. `release()` never rejects. The [Node PTC runtime](../../packages/ptc-runtime/ptc-runtime-node/README.md) keeps the sandbox's proxy variables when it clears the program environment, so Node networking inside the confined process still reaches the sandbox proxy.
+
 ## Provider and fail-closed errors
 
 `await ctx.sandbox.confine(argv, policy, signal)` resolves policy paths and returns a `ConfinedArgv` from the execution world, or rejects with `SandboxUnavailableError` and code `SANDBOX_UNAVAILABLE` when no usable backend exists. The optional signal cancels resolution before launch. Consumers may also classify a failure while spawning or observing the returned argv; that attribution belongs to the consumer contract. Silent unconfined passthrough is never legal for a confined policy.
+
+A policy that requests `denyRead`, `denyWrite`, or `network` is checked against what the selected backend enforces. A backend that cannot enforce a requested field rejects with `SandboxUnsupportedPolicyError` and code `SANDBOX_UNSUPPORTED_POLICY`, naming every unsupported field; it never drops a field silently. The rungs of the [local provider](../../packages/sandbox/sandbox-local/README.md) and the SSH provider enforce none of the three yet, so such a policy is rejected there until a backend that does is selected.
 
 Provider selection, probing, caching, and backend-specific enforcement reports belong to the [local provider](../../packages/sandbox/sandbox-local/README.md).
 

@@ -113,6 +113,34 @@ describe('declarative preset revisions', () => {
     await expect(ctx.agentPresets.select(agent, 'standard')).rejects.toThrow('already started')
   })
 
+  it('serializes composition changes per preset and isolates failures and other presets', async () => {
+    const ctx = await setup()
+    const order: string[] = []
+    const firstStarted = Promise.withResolvers<undefined>()
+    const gate = Promise.withResolvers<undefined>()
+    const first = ctx.agentPresets.serializeChange('tidebloom', async () => {
+      order.push('first:start')
+      firstStarted.resolve(undefined)
+      await gate.promise
+      order.push('first:end')
+      return 1
+    })
+    const second = ctx.agentPresets.serializeChange('tidebloom', async () => { order.push('second'); return 2 })
+    const other = ctx.agentPresets.serializeChange('other', async () => { order.push('other'); return 3 })
+    await firstStarted.promise
+    expect(await other).toBe(3)
+    expect(order).toEqual(['first:start', 'other'])
+    gate.resolve(undefined)
+    expect(await first).toBe(1)
+    expect(await second).toBe(2)
+    expect(order).toEqual(['first:start', 'other', 'first:end', 'second'])
+    const failure = new Error('change failed')
+    const failed = ctx.agentPresets.serializeChange('tidebloom', () => Promise.reject(failure))
+    const next = ctx.agentPresets.serializeChange('tidebloom', async () => 'recovered')
+    await expect(failed).rejects.toBe(failure)
+    expect(await next).toBe('recovered')
+  })
+
   it('inventories active and disabled child entries and declared display metadata', async () => {
     const ctx = await setup()
     await declare(ctx, { ...contribution('standard'), name: 'Standard', description: 'General', order: 2 })

@@ -52,7 +52,7 @@ export function apply() { record('apply:${name}') }
   const profile: ProfileContext = {
     name: 'preflight', dir, patchPath: join(dir, 'cordis.patch.yml'),
     installAnchor: join(dir, 'package.json'), cwd: dir, home: dir,
-    startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+    startedBundles: [], overlays: [], sourceCheckout: false, telemetryDisabledEnv: undefined,
   }
   const configPath = join(dir, 'cordis.yml')
   writeFileSync(configPath, '[]\n')

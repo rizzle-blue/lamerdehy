@@ -25,6 +25,8 @@ extensions 组为 agent 提供只读运行时 API 发现、供程序和浏览器
 | 包 | 职责 | ctx 键 |
 |---|---|---|
 | [`tool-cordis`](tool-cordis/README.zh.md) | 两个只读运行时 API 发现工具 | 注册到 `ctx.tools` |
+| [`tool-self-extend`](tool-self-extend/README.zh.md) | Tidebloom 模式无需审批即可编辑自身 preset 组成 | 注册到 `ctx.tools` |
+| [`tool-sandboxed-module`](tool-sandboxed-module/README.zh.md) | 在全新的操作系统沙箱进程中运行 Tidebloom 模块扩展的工具 | 注册到 `ctx.tools` |
 | [`cordis-host-runner`](cordis-host-runner/README.zh.md) | host 半：定义注册表、沙箱化的 host 半生命周期，以及用于应答浏览器查询的 inspect 注册表 | 提供 `ctx.dynamicCordisRunner` 与 `ctx.cordisInspect` |
 | [`cordis-client-runner`](cordis-client-runner/README.zh.md) | 浏览器半：将浏览器半源码求值为运行中的插件，并应答运行请求 | client 面；提供浏览器侧 `ctx.dynamicCordisRunner` |
 | [`ui-cordis`](ui-cordis/README.zh.md) | 浏览器面板与历史生命周期工具卡片 | client 侧；注册 slot |

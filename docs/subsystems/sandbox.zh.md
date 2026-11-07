@@ -8,14 +8,14 @@
 
 ## 模式与强制执行
 
-`SandboxMode` 仅管控文件系统效果。`read-only` 要求后端拒绝写入——POSIX runner 还会授予其 shell 所需的 `/dev/null` 接收器，而 Windows ACL runner 不授予任何显式可写根目录，并因环境 ACL 缺口报告部分强制执行；`workspace-write` 允许在工作区根目录、显式额外目录及后端承诺的临时区域下写入；`danger-full-access` 绕过隔离。网络与进程可见性不在此处的定义范围内。
+`SandboxMode` 仅管控文件系统效果。`read-only` 要求后端拒绝写入——POSIX runner 还会授予其 shell 所需的 `/dev/null` 接收器，而 Windows ACL runner 不授予任何显式可写根目录，并因环境 ACL 缺口报告部分强制执行；`workspace-write` 允许在工作区根目录、显式额外目录及后端承诺的临时区域下写入；`danger-full-access` 绕过隔离。读取拒绝、受保护写入路径和网络是下文所述的独立可选策略字段；进程可见性不在此处的定义范围内。
 
 ```ts type-equiv
 /**
  * File-effect policy for confined processes. `read-only` permits only required
  * sinks such as `/dev/null`; `workspace-write` also permits the workspace,
- * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement. Network
- * and process visibility are outside this vocabulary.
+ * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement.
+ * Read denies, protected write paths, and network are separate optional policy fields.
  */
 type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 ```
@@ -68,8 +68,30 @@ interface SandboxExecutionPolicy {
    * for agentless calls, which fall back to per-call backend state.
    */
   sessionId?: SessionId
+  /**
+   * Absolute paths the process must not read. Absence or an empty list denies
+   * nothing. Writable roots and {@link allowRead} entries beneath a denied path
+   * stay readable. A provider that cannot enforce read denies refuses the policy.
+   */
+  denyRead?: readonly string[]
+  /** Absolute paths re-allowed for reading beneath a {@link denyRead} entry; meaningless without one. */
+  allowRead?: readonly string[]
+  /**
+   * Absolute paths inside writable roots that stay write-denied, whether or not
+   * they exist yet. Absence or an empty list denies nothing. A provider that
+   * cannot enforce write denies refuses the policy.
+   */
+  denyWrite?: readonly string[]
+  /**
+   * Network reachable by the process. Absence leaves network unrestricted; a
+   * present policy permits only its listed hosts, so an empty list denies all
+   * network. A provider that cannot enforce it refuses the policy.
+   */
+  network?: SandboxNetworkPolicy
 }
 ```
+
+`protectedWritePaths(roots)` 与 `credentialReadDenyPaths(home, dshHome)` 返回内置列表，消费方可分别将其作为 `denyWrite` 与 `denyRead` 传入：每个可写根目录下的 shell 启动文件、git hook 与配置、编辑器及 agent 配置、指令文件；以及 OS home 下的工具凭据存储和整个 DSH home。是否采用由消费方决定；seam 自身不会应用这两个列表，因为一般的 shell 工作确实会编辑 `AGENTS.md` 之类的文件。`requestedRestrictions`、`assertRestrictionsSupported` 与 `NO_RESTRICTIONS` 供提供方声明并强制执行其所支持的内容。
 
 `ctx.sandboxPolicy.resolve()` 接收活跃会话；对于已批准的重试，还接收显式模式。该服务拥有优先级与 root 回退规则，使 bash 和 fs 不必重复实现。
 
@@ -153,14 +175,30 @@ interface ConfinedArgv {
    * command never ran, while denial means confinement worked and blocked it.
    */
   runnerFailureRules: readonly RunnerFailureRule[]
+  /**
+   * Variables the consumer overlays on the child's environment, such as the
+   * network proxy settings a policy's {@link SandboxExecutionPolicy.network} needs.
+   * Empty when the backend needs none.
+   */
+  env: Readonly<Record<string, string>>
+  /**
+   * Release per-call backend state, such as a registered host list or mount
+   * points. The consumer awaits it once after the child exits, after a spawn
+   * failure, or when it abandons the spawn; it never rejects.
+   */
+  release: () => Promise<void>
 }
 ```
 
 [本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)拥有运维配置，并将其 runner 方言映射到这些规则。[沙箱化 bash 消费方](../../packages/shell/bash-sandbox/README.zh.md)拥有 spawn 与结果归因。
 
+`env` 与 `release` 承载逐调用的后端状态。消费方把 `env` 最后叠加到子进程环境上，并在子进程退出、spawn 失败，或放弃已准备但从未 spawn 的隔离后，恰好 await 一次 `release()`。子进程比调用存活更久的消费方（例如持久终端）在该子进程结束时释放。`release()` 从不 reject。[Node PTC 运行时](../../packages/ptc-runtime/ptc-runtime-node/README.zh.md)在清空程序环境时保留沙箱的代理变量，使受限进程内的 Node 网络仍能到达沙箱代理。
+
 ## 提供方与 fail-closed 错误
 
 `await ctx.sandbox.confine(argv, policy, signal)` 在执行环境中解析策略路径并返回 `ConfinedArgv`，没有可用后端时以 `SandboxUnavailableError`（错误码 `SANDBOX_UNAVAILABLE`）拒绝。可选信号可在启动前取消解析。消费方也可以在 spawn 或观察所返回的 argv 时对失败进行分类；该归因属于消费方约定。对于受限策略，静默的无隔离透传永远不合法。
+
+请求 `denyRead`、`denyWrite` 或 `network` 的策略，会与所选后端实际能强制执行的内容比对。无法强制执行所请求字段的后端以 `SandboxUnsupportedPolicyError`（错误码 `SANDBOX_UNSUPPORTED_POLICY`）拒绝，并列出所有不受支持的字段；它从不静默丢弃字段。[本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)的各个 rung 与 SSH 提供方目前都不强制执行这三者，因此这类策略在那里会被拒绝，直到选中能够强制执行的后端。
 
 提供方选择、探测、缓存和后端特定的强制执行报告归[本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)所有。
 

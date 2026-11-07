@@ -31,6 +31,8 @@
 | `@deepseek-ai/dsh-tool-present` | `present` | `ctx.workingDirectory`、`ctx.tools`, `ctx.fs`, `ctx.agents` | `tool/call`, `deliverables/presented 在成功的最终结果之后`, `tool/result` | - | 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。 |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.workingDirectory`、`ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`、`tool/result` | - | pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@deepseek-ai/dsh-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@deepseek-ai/dsh-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。 |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_inspect_list`, `cordis_inspect_query` | `ctx.tools`, `ctx.cordisInspect` | `tool/call`, `tool/result` | - | 创造模式提供两个只读运行时检查工具。Cordis host runner 提供检查注册表；Client 查询需要已连接页面。持久化变更编写为组合包，再通过 plugin_manager 安装。 |
+| `@deepseek-ai/dsh-tool-self-extend` | `self_extend` | `ctx.tools`, `ctx.configEditor`, `ctx.agentPresets`, `ctx.profileContext`, `ctx.ptcRuntime` | `tool/call`, `tool/result`, `profile patch preset override` | - | 仅在源码检出中显示的 Tidebloom 模式可在固定防护范围内免审批编辑自身预设的自我扩展组：模块扩展只通过沙箱模块工具运行，包扩展必须在该模式的允许列表中。该模式的新会话和指定 agent_preset tidebloom 启动的子 agent 会使用变更。 |
+| `@deepseek-ai/dsh-tool-sandboxed-module` | `example_sandboxed_tool` | `ctx.tools`, `ctx.ptcRuntime`, `ctx.sandboxPolicy`, `ctx.profileContext` | `tool/call`, `tool/result`, `files in the extension data directory or session workspace, per its write permission` | - | 由 Tidebloom self_extend 为模块扩展注册；工具名称、描述和参数来自模块清单。每次调用都在环境为空、没有 harness 工具且不弹出审批的全新操作系统沙箱 Node 进程中运行模块。 |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.workingDirectory`、`ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。 |
 | `@deepseek-ai/dsh-tool-pwsh-persistent` | `pwsh` | `ctx.workingDirectory`、`ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 pwsh 工具，持久 bash 工具的 Windows 对应物；部署组合提供 pwsh 方言的 PTY 后端，并可覆盖面向模型的环境描述。 |
 | `@deepseek-ai/dsh-tool-str-replace-editor` | `str_replace_editor` | `ctx.tools`、`ctx.fs` | `tool/call`、`fs/observed after view presence/absence, edit absence, or successful mutation`、`tool/result` | - | 基于文件系统 seam 的独立查看／创建／唯一字面量替换／按行插入工具；可与任何 shell 或终端接口组合。 |
@@ -882,6 +884,86 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 创造模式提供两个只读运行时检查工具。Cordis host runner 提供检查注册表；Client 查询需要已连接页面。持久化变更编写为组合包，再通过 plugin_manager 安装。
+
+<a id="deepseek-aidsh-tool-self-extend"></a>
+
+## `@deepseek-ai/dsh-tool-self-extend`
+
+### `self_extend`
+
+在固定防护范围内免审批扩展本模式自身的插件组成：列出、添加、更新或移除自我扩展组中的行。模块扩展是导出 tools（由 { name, description, parameters } 组成的数组）和 execute(name, args) 的自包含 ESM 文件；每次调用都在环境为空、没有 harness 工具的全新操作系统沙箱 Node 进程中运行，且只能写入其写入权限允许的位置。包扩展必须在本模式的包允许列表中，并在进程内加载。变更保存在 profile 中，适用于本模式的新会话以及将 agent_preset 设为本模式启动的子 agent；本会话保留现有工具。加载失败的变更会回滚并报告。其他模式和 profile 全局插件不在操作范围内；请使用 plugin_manager 管理它们。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Operation.",
+      "enum": [
+        "list",
+        "add",
+        "update",
+        "remove"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "description": "Extension row id: lowercase letters, digits, and hyphens. Required except for list."
+    },
+    "package": {
+      "type": "string",
+      "description": "For add or update: an installed plugin package on this mode's allowlist, such as @deepseek-ai/dsh-tool-str-replace-editor; it loads in-process. Mutually exclusive with module."
+    },
+    "module": {
+      "type": "string",
+      "description": "For add or update: absolute path to a self-contained ESM file (.js or .mjs) that exports tools and execute(name, args). The file is copied, so later edits need another update. Mutually exclusive with package."
+    },
+    "write": {
+      "type": "string",
+      "description": "For module extensions: where its sandboxed calls may write. none: nowhere; data: only its private data directory; workspace: the session workspace and its data directory, never wider than the session's own mode and never a home, root, or DSH directory. Defaults to data on add; omitted on update keeps the current value.",
+      "enum": [
+        "none",
+        "data",
+        "workspace"
+      ]
+    },
+    "config": {
+      "description": "For package extensions: the row's complete config object. Omitted on update keeps the current config."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "For add or update: false saves the row disabled. Defaults to true on add; omitted on update keeps the current state."
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
+```
+
+来源： [`packages/extensions/tool-self-extend/src/index.ts`](../packages/extensions/tool-self-extend/src/index.ts)
+
+仅在源码检出中显示的 Tidebloom 模式可在固定防护范围内免审批编辑自身预设的自我扩展组：模块扩展只通过沙箱模块工具运行，包扩展必须在该模式的允许列表中。该模式的新会话和指定 agent_preset tidebloom 启动的子 agent 会使用变更。
+
+<a id="deepseek-aidsh-tool-sandboxed-module"></a>
+
+## `@deepseek-ai/dsh-tool-sandboxed-module`
+
+### `example_sandboxed_tool`
+
+沙箱化 Tidebloom 模块声明的示例工具。
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+来源： [`packages/extensions/tool-sandboxed-module/src/index.ts`](../packages/extensions/tool-sandboxed-module/src/index.ts)
+
+由 Tidebloom self_extend 为模块扩展注册；工具名称、描述和参数来自模块清单。每次调用都在环境为空、没有 harness 工具且不弹出审批的全新操作系统沙箱 Node 进程中运行模块。
 
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "沙箱模块工具",
+    "description": "在沙箱进程中运行 Tidebloom 模式添加的扩展工具。"
+  }
+}

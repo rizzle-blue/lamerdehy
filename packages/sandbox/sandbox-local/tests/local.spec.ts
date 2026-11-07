@@ -25,6 +25,9 @@ import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from '../s
 const RO: SandboxPolicy = { mode: 'read-only', workspaceRoot: '/ws' }
 const WW: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws' }
 
+/** Matches the legacy rungs' shared no-op `release` hook, which is not exported. */
+const ANY_RELEASE = expect.any(Function) as () => Promise<void>
+
 /** Every temp dir created by this file (fake launchers and runner entries), removed after each test. */
 const tempDirs: string[] = []
 afterEach(() => {
@@ -170,6 +173,8 @@ describe('runnerCommand config', () => {
     expect(confined).toEqual({
       argv: ['fake-runner', '--flag', ...bwrapProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
       enforcement: 'full',
+      env: {},
+      release: ANY_RELEASE,
       // An operator runner's kernel mechanism is unknown: both Linux
       // file-denial dialects, never bare EPERM.
       denialSignatures: ['read-only file system', 'permission denied'],
@@ -218,6 +223,8 @@ describe('the platform chains', () => {
     expect(confined).toEqual({
       argv: ['bwrap', ...bwrapProfileArgs(RO), '--', 'true'],
       enforcement: 'full',
+      env: {},
+      release: ANY_RELEASE,
       denialSignatures: ['read-only file system'],
       runnerFailureRules: [{ fatalSignatures: ['bwrap: '] }],
     })
@@ -233,6 +240,8 @@ describe('the platform chains', () => {
     expect(confined).toEqual({
       argv: [launcher, ...landlockProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
       enforcement: 'full',
+      env: {},
+      release: ANY_RELEASE,
       denialSignatures: ['permission denied'],
       runnerFailureRules: [{
         allowedExitCodes: [LAUNCHER_FAILURE_EXIT],
@@ -253,6 +262,8 @@ describe('the platform chains', () => {
     expect(confined).toEqual({
       argv: ['sandbox-exec', ...seatbeltProfileArgs(RO), '--', 'bash', '-c', 'echo hi'],
       enforcement: 'full',
+      env: {},
+      release: ANY_RELEASE,
       denialSignatures: ['operation not permitted'],
       runnerFailureRules: [{ fatalSignatures: ['sandbox-exec: '] }],
     })
@@ -418,6 +429,8 @@ describe('the default seatbelt probe (sandbox-exec contract)', () => {
     expect(confined).toEqual({
       argv: [exec, ...seatbeltProfileArgs(RO), '--', 'true'],
       enforcement: 'full',
+      env: {},
+      release: ANY_RELEASE,
       denialSignatures: ['operation not permitted'],
       runnerFailureRules: [{ fatalSignatures: ['sandbox-exec: '] }],
     })

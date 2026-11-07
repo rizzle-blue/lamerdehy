@@ -55,6 +55,13 @@ import * as ToolBashPersistent from '@deepseek-ai/dsh-tool-bash-persistent'
 import * as ToolPwshPersistent from '@deepseek-ai/dsh-tool-pwsh-persistent'
 import CordisHostRunner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
+import * as ToolSelfExtend from '@deepseek-ai/dsh-tool-self-extend'
+import * as ToolSandboxedModule from '@deepseek-ai/dsh-tool-sandboxed-module'
+import type { ConfigEditor } from '@deepseek-ai/dsh-config-editor'
+import type { AgentPresetRegistry } from '@deepseek-ai/dsh-agent-preset-registry'
+import type { ProfileContext } from '@deepseek-ai/dsh-app-boot'
+import type { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
+import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import * as ToolPresent from '@deepseek-ai/dsh-tool-present'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
@@ -373,6 +380,40 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-self-extend',
+    dir: 'tool-self-extend',
+    source: 'packages/extensions/tool-self-extend/src/index.ts',
+    requires: ['ctx.tools', 'ctx.configEditor', 'ctx.agentPresets', 'ctx.profileContext', 'ctx.ptcRuntime'],
+    writes: ['tool/call', 'tool/result', 'profile patch preset override'],
+    async mount(ctx) {
+      // Schema harvest never edits a profile or runs a module.
+      ctx.provide('configEditor', {} as ConfigEditor)
+      ctx.provide('agentPresets', {} as AgentPresetRegistry)
+      ctx.provide('profileContext', {} as ProfileContext)
+      ctx.provide('ptcRuntime', {} as PtcRuntime)
+      await ctx.plugin(ToolSelfExtend, { presetEntry: 'preset-tidebloom', extensionGroup: 'self-extensions', allowedPackages: [] })
+    },
+    note: 'Tidebloom mode, shown only in source checkouts, edits its own preset\'s self-extension group without approval inside fixed guardrails: module extensions run only through the sandboxed-module tool, and package extensions must be on the mode\'s allowlist. New sessions of the mode and subagents started with agent_preset tidebloom receive the change.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-sandboxed-module',
+    dir: 'tool-sandboxed-module',
+    source: 'packages/extensions/tool-sandboxed-module/src/index.ts',
+    requires: ['ctx.tools', 'ctx.ptcRuntime', 'ctx.sandboxPolicy', 'ctx.profileContext'],
+    writes: ['tool/call', 'tool/result', 'files in the extension data directory or session workspace, per its write permission'],
+    async mount(ctx) {
+      // Schema harvest never runs a module.
+      ctx.provide('ptcRuntime', { language: 'typescript', sandboxMode: 'workspace-write', programFormat: 'function-body' } as PtcRuntime)
+      ctx.provide('sandboxPolicy', {} as SandboxPolicyService)
+      ctx.provide('profileContext', {} as ProfileContext)
+      await ctx.plugin(ToolSandboxedModule, {
+        module: 'file:///catalog/example.mjs', dataDir: '/catalog/data', write: 'data',
+        tools: [{ name: 'example_sandboxed_tool', description: 'Example tool declared by a sandboxed Tidebloom module.', parameters: { type: 'object', properties: {} } }],
+      })
+    },
+    note: 'Registered by Tidebloom self_extend for module extensions; tool names, descriptions and parameters come from the module manifest. Every call runs the module in a fresh OS-sandboxed Node process with an empty environment, no harness tools and no approval prompts.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',

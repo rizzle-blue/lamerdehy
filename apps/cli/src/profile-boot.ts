@@ -21,6 +21,7 @@ import {
   createRuntimeResolution,
   initProfile,
   installFailLoud,
+  isSourceInstallation,
   loadOverlayPatches,
   loadProfile,
   reportSkippedBundles,
@@ -311,11 +312,12 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
     })
 
     const rootConfig = join(composed.profile.dir, PROFILE_ROOT_FILENAME)
+    const installAnchor = options.resolvedProfile?.installAnchor ?? INSTALL_ANCHOR
     const profileContext: ProfileContext = {
       name: options.profile,
       ...(options.packageManager === undefined ? {} : { packageManager: options.packageManager }),
       dir: composed.profile.dir, patchPath: composed.profile.patchPath,
-      installAnchor: options.resolvedProfile?.installAnchor ?? INSTALL_ANCHOR,
+      installAnchor, sourceCheckout: isSourceInstallation(installAnchor),
       startedBundles: composed.profile.layers.map(layer => layer.packageName),
       cwd: process.cwd(), home: resolveDshHome(),
       overlays: composed.overlays, telemetryDisabledEnv: process.env.DSH_TELEMETRY_DISABLED,

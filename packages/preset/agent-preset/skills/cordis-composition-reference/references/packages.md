@@ -243,6 +243,8 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-cordis-client-runner` | no | Browser half of dynamic dual-half plugin packages: event subscription, closure evaluation, guard facade, and loader entries |
 | `@deepseek-ai/dsh-cordis-host-runner` | yes | Dynamic package definition registry, host-half sandbox lifecycle, and invoke handler table for model-mounted dual-half packages |
 | `@deepseek-ai/dsh-tool-cordis` | no | Read-only runtime API inspection for Harness plugin development |
+| `@deepseek-ai/dsh-tool-sandboxed-module` | yes | Runs Tidebloom module extension tools in fresh OS-sandboxed processes |
+| `@deepseek-ai/dsh-tool-self-extend` | yes | Approval-free edits to the declaring agent preset’s own plugin composition |
 
 ## feedback
 

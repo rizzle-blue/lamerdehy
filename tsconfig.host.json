@@ -569,6 +569,8 @@
     { "path": "./packages/guard/repeat-tool-reminder" },
     { "path": "./packages/extensions/cordis-host-runner" },
     { "path": "./packages/extensions/tool-cordis" },
+    { "path": "./packages/extensions/tool-self-extend" },
+    { "path": "./packages/extensions/tool-sandboxed-module" },
     { "path": "./packages/experimental/hook-protocol" },
     { "path": "./packages/experimental/hooks-claude-code" },
     { "path": "./packages/experimental/hooks-codex" },

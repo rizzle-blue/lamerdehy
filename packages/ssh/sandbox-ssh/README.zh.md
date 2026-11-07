@@ -27,7 +27,7 @@ kind: "package-reference"
 
 将本提供方与共享 [SSH 连接](../ssh/README.zh.md)、SSH 文件系统及 SSH 子进程提供方一同挂载。本包没有专用配置。等待 `confine(argv, policy, signal)`，由正在运行的远端辅助程序解析每次调用的策略与命令。
 
-传入完整的 `read-only` 或 `workspace-write` 策略。工作区路径在远端主机解释并规范化。消费方在 `danger-full-access` 模式下绕过 `confine()`；连接不额外引入本地／远端策略标记。
+传入完整的、不含 `denyRead`、`denyWrite` 或 `network` 的 `read-only` 或 `workspace-write` 策略；SSH 通信协议不携带这些字段，因此这类策略会在联系辅助程序之前以 `SANDBOX_UNSUPPORTED_POLICY` 拒绝。工作区路径在远端主机解释并规范化。消费方在 `danger-full-access` 模式下绕过 `confine()`；连接不额外引入本地／远端策略标记。
 
 -----
 
@@ -37,7 +37,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节 — 点击展开</summary>
 
-正在运行的辅助程序规范化策略根路径，再向已加载的沙箱提供方获取强制执行限制的 argv、执行完整性等级与运行器失败证据。SSH 子进程提供方直接执行返回的 argv，并负责 fd 7 传输及托管进程生命周期。取消请求或后端不可用时，会在调用方取得可启动命令之前拒绝请求。
+正在运行的辅助程序规范化策略根路径，再向已加载的沙箱提供方获取强制执行限制的 argv、执行完整性等级与运行器失败证据。SSH 子进程提供方直接执行返回的 argv，并负责 fd 7 传输及托管进程生命周期。辅助程序以 `releaseId` 保存每次隔离的释放钩子，直到客户端返回的 `release()` 发送 `sandbox.release` 或连接关闭。取消请求或后端不可用时，会在调用方取得可启动命令之前拒绝请求。
 
 </details>
 

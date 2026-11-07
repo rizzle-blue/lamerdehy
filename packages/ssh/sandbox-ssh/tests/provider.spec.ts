@@ -1,15 +1,19 @@
 /** Each confinement request resolves remotely before any subprocess receives its argv. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import { SandboxUnavailableError, type SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
+import { SandboxUnavailableError, type ConfinedArgv, type SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { z } from 'zod'
 import { SshSandboxProvider } from '../src/index.ts'
 
 const policy: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/remote/link/..' }
+const releaseId = '7f1b3c9e-2a4d-4f6b-8c1e-9d2a3b4c5d6e'
 const completeFacts = {
   argv: ['/usr/bin/bwrap', '--', 'true'], enforcement: 'full', denialSignatures: ['EROFS', 'EACCES'],
   runnerFailureRules: [{ allowedExitCodes: [1], fatalSignatures: ['bwrap:'], informationalLines: ['notice'] }],
+  env: { HTTPS_PROXY: 'http://127.0.0.1:1' }, releaseId,
 }
+const facts = (confined: ConfinedArgv) => ({ ...confined, release: undefined })
+const local = (response: Record<string, unknown>) => ({ ...response, releaseId: undefined, release: undefined })
 
 async function setup(raw: unknown = completeFacts) {
   const dispatch = vi.fn(async (_method: string, _params: unknown, _signal?: AbortSignal) => raw)
@@ -40,7 +44,7 @@ describe('SSH sandbox provider', () => {
     expect(state.dispatch).toHaveBeenCalledWith('sandbox', { argv, policy }, controller.signal)
     const response = { ...completeFacts, argv: ['/usr/bin/bwrap', '--', ...argv] }
     result.resolve(response)
-    expect(await pending).toEqual(response)
+    expect(facts(await pending)).toEqual(local(response))
   })
 
   it('obtains current backend facts for every execution policy', async () => {
@@ -48,11 +52,11 @@ describe('SSH sandbox provider', () => {
     expect((await state.ctx.sandbox.confine(['true'], policy)).enforcement).toBe('full')
     const partial = { ...completeFacts, argv: ['/opt/landlock', '--', 'true'], enforcement: 'partial', runnerFailureRules: [{ fatalSignatures: ['runner unavailable'] }] }
     state.dispatch.mockResolvedValueOnce(partial)
-    expect(await state.ctx.sandbox.confine(['true'], { ...policy, mode: 'read-only' })).toEqual(partial)
+    expect(facts(await state.ctx.sandbox.confine(['true'], { ...policy, mode: 'read-only' }))).toEqual(local(partial))
     expect(state.dispatch).toHaveBeenCalledTimes(2)
   })
 
-  it.each([null, { ...completeFacts, argv: [] }, { ...completeFacts, enforcement: 'unknown' }, { ...completeFacts, runnerFailureRules: [{ fatalSignatures: 1 }] }])(
+  it.each([null, { ...completeFacts, argv: [] }, { ...completeFacts, enforcement: 'unknown' }, { ...completeFacts, runnerFailureRules: [{ fatalSignatures: 1 }] }, { ...completeFacts, releaseId: 'not-a-uuid' }, { ...completeFacts, env: { A: 1 } }])(
     'refuses malformed backend observations before exposing argv', async (raw) => {
       const state = await setup(raw)
       await expect(state.ctx.sandbox.confine(['true'], policy)).rejects.toBeInstanceOf(SandboxUnavailableError)
@@ -85,5 +89,24 @@ describe('SSH sandbox provider', () => {
     const rejected = expect(pending).rejects.toBe(reason)
     controller.abort(reason)
     await rejected
+  })
+
+  it('releases the remote confinement once and reports a failed release without rejecting', async () => {
+    const state = await setup()
+    const confined = await state.ctx.sandbox.confine(['true'], policy)
+    state.dispatch.mockResolvedValueOnce(null)
+    await confined.release()
+    expect(state.dispatch).toHaveBeenLastCalledWith('sandbox.release', { releaseId }, undefined)
+    const warn = vi.spyOn(state.ctx.logger, 'warn').mockImplementation(() => undefined)
+    state.dispatch.mockRejectedValueOnce(new Error('connection lost'))
+    await expect(confined.release()).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(`sandbox-ssh: releasing remote confinement ${releaseId} failed: Error: connection lost`)
+  })
+
+  it('refuses restrictions the SSH wire cannot carry before contacting the helper', async () => {
+    const state = await setup()
+    await expect(state.ctx.sandbox.confine(['true'], { ...policy, network: { allowedDomains: [] } }))
+      .rejects.toMatchObject({ code: 'SANDBOX_UNSUPPORTED_POLICY' })
+    expect(state.dispatch).not.toHaveBeenCalled()
   })
 })

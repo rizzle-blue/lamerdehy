@@ -31,7 +31,7 @@ function withBinding(fn: PtcBindingFunction): PtcRunRequest {
 }
 
 function confinement(argv: string[]): ConfinedArgv {
-  return { argv, enforcement: 'partial', denialSignatures: ['EACCES'], runnerFailureRules: [{ fatalSignatures: ['sandbox-fatal:'] }] }
+  return { argv, enforcement: 'partial', denialSignatures: ['EACCES'], runnerFailureRules: [{ fatalSignatures: ['sandbox-fatal:'] }], env: {}, release: () => Promise.resolve() }
 }
 
 describe('Node runtime host failures', () => {
@@ -100,6 +100,33 @@ describe('Node runtime host failures', () => {
     const result = await h.start()
     expect(result.error?.kind).toBe('sandbox-unavailable')
     expect(result.sandbox?.denied).toBe(false)
+  })
+
+  it('overlays the confinement environment on the spawn and releases it once after the run', async () => {
+    const h = await setup({}, 'read-only')
+    let released = 0
+    vi.spyOn(h.ctx.sandbox, 'confine').mockImplementation(async argv => ({
+      ...confinement([...argv]), env: { HTTPS_PROXY: 'http://127.0.0.1:9', NODE_USE_ENV_PROXY: '1' },
+      release: () => { released++; return Promise.resolve() },
+    }))
+    h.onBoot(() => { h.complete({ value: encodePtcJsonWire(1) }) })
+    expect((await h.start()).value).toBe(1)
+    const env = h.spawn.mock.calls[0]?.[0].env ?? {}
+    expect(env.HTTPS_PROXY).toBe('http://127.0.0.1:9')
+    expect(env.NODE_USE_ENV_PROXY).toBe('1')
+    await h.ctx.fiber.dispose()
+    await vi.waitFor(() => { expect(released).toBe(1) })
+  })
+
+  it('releases the confinement when the process fails to spawn', async () => {
+    const h = await setup({}, 'read-only')
+    let released = 0
+    vi.spyOn(h.ctx.sandbox, 'confine').mockImplementation(async argv => ({
+      ...confinement([...argv]), release: () => { released++; return Promise.resolve() },
+    }))
+    h.spawn.mockImplementation(() => { throw new Error('spawn failed') })
+    expect((await h.start()).error?.message).toContain('spawn failed')
+    await vi.waitFor(() => { expect(released).toBe(1) })
   })
 
   it('reports bootstrap assets that cannot map into the execution world', async () => {

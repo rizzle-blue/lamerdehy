@@ -19,7 +19,7 @@ async function setup() {
   const completion = Promise.withResolvers<SubprocessOutcome>()
   const runs: Promise<ShellRunResult>[] = []
   const listeners: Array<() => void> = []
-  const wrap: ConfinedArgv = { argv: ['fixture-runner'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
+  const wrap: ConfinedArgv = { argv: ['fixture-runner'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() }
   const confine = vi.fn(async (_argv: readonly string[], _policy: SandboxPolicy, signal?: AbortSignal) => {
     entered.resolve(signal)
     return prepared.promise

@@ -94,15 +94,19 @@ function childEnvironment(spec: TerminalBackendSpawnSpec, dialect: ShellDialect)
 export const PWSH_PROMPT_SETUP =
   "function prompt { [Console]::Write([char]27 + ']133;D;' + [int]$LASTEXITCODE + [char]7); '" + CONTROLLED_PROMPT + "' }"
 
-async function spawnArgv(ctx: Context, config: ResolvedConfig, policy: SandboxExecutionPolicy, signal?: AbortSignal): Promise<string[]> {
+/** The shell's spawn argv, the confinement's environment overlay, and its per-call release hook. */
+interface SpawnPlan { argv: string[]; env: Readonly<Record<string, string>>; release: () => Promise<void> }
+
+async function spawnArgv(ctx: Context, config: ResolvedConfig, policy: SandboxExecutionPolicy, signal?: AbortSignal): Promise<SpawnPlan> {
   const argv = [config.shellPath, ...config.shellArgs]
-  if (policy.mode === 'danger-full-access') return argv
+  if (policy.mode === 'danger-full-access') return { argv, env: {}, release: () => Promise.resolve() }
   const sandbox = ctx.get('sandbox')
   if (sandbox === undefined) {
     throw new Error(`terminal-bash: sandbox mode "${policy.mode}" requires a ctx.sandbox provider in the execution world`)
   }
   // Re-state the discriminant because object spread does not preserve its narrowed type.
-  return (await sandbox.confine(argv, { ...policy, mode: policy.mode }, signal)).argv
+  const { argv: confined, env, release } = await sandbox.confine(argv, { ...policy, mode: policy.mode }, signal)
+  return { argv: confined, env, release }
 }
 
 // TODO(pty-initialize-race-home): Fold this outer abort race into
@@ -199,19 +203,32 @@ export class BashTerminalBackend implements TerminalBackend {
     spec.signal?.throwIfAborted()
     ensureSandboxModeFence(this.ctx, spec.owner)
     const policy = this.ctx.sandboxPolicy.resolve({ session: spec.owner.session })
-    const argv = await spawnArgv(this.ctx, this.config, policy, spec.signal)
-    spec.signal?.throwIfAborted()
-    if (argv[0] === undefined) throw new Error('terminal-bash: sandbox returned empty argv')
-    const terminal = await this.spawnTerminal({
-      argv,
-      cwd: spec.cwd ?? await this.ctx.workingDirectory.ensure(spec.owner, spec.signal),
-      env: childEnvironment(spec, this.config.shellDialect),
-      rows: this.config.rows,
-      cols: this.config.cols,
-      terminalType: 'dumb',
-      graceMs: this.config.disposeGraceMs,
-      signal: spec.signal,
-    })
+    const plan = await spawnArgv(this.ctx, this.config, policy, spec.signal)
+    const { argv } = plan
+    try { spec.signal?.throwIfAborted() }
+    catch (error) { await plan.release(); throw error }
+    if (argv[0] === undefined) {
+      await plan.release()
+      throw new Error('terminal-bash: sandbox returned empty argv')
+    }
+    let terminal: SubprocessTerminalHandle
+    try {
+      terminal = await this.spawnTerminal({
+        argv,
+        cwd: spec.cwd ?? await this.ctx.workingDirectory.ensure(spec.owner, spec.signal),
+        env: { ...childEnvironment(spec, this.config.shellDialect), ...plan.env },
+        rows: this.config.rows,
+        cols: this.config.cols,
+        terminalType: 'dumb',
+        graceMs: this.config.disposeGraceMs,
+        signal: spec.signal,
+      })
+    } catch (error) {
+      await plan.release()
+      throw error
+    }
+    // The shell outlives this call; the confinement's state ends with the shell.
+    void terminal.done.then(() => plan.release(), () => plan.release())
     let session: LocalPtySession
     try {
       session = this.createSession(terminal, this.config)

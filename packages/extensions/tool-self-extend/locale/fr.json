@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Outil d’auto-extension",
+    "description": "Permet à l’agent du mode Tidebloom de gérer les plug-ins de son propre mode."
+  }
+}

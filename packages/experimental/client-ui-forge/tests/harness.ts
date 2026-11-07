@@ -201,7 +201,7 @@ export class RecordingSandbox extends SandboxProvider {
     if (this.record.failure !== undefined) throw this.record.failure
     this.record.calls.push({ argv, policy })
     await this.record.gate?.(argv)
-    return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
+    return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() }
   }
 }
 

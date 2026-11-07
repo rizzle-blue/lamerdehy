@@ -16,8 +16,8 @@ import type { SandboxExecutionPolicy, SandboxPolicy } from '@deepseek-ai/dsh-san
 import { z } from 'zod'
 import { SshRpcPeer, RemoteOperationError, SSH_MAX_PROCESS_HANDLES, SSH_MAX_TEXT_STREAMS, SSH_PROTOCOL_VERSION } from './protocol.ts'
 import { RemoteProcesses } from './helper-processes.ts'
-import { hunkSchema, moveOptionsSchema, versionGuardSchema, editSchema, environmentSchema, intentSchema, policySchema, processIdSchema, remotePath, targetSchema, textStreamIdSchema } from './schemas.ts'
-import type { SshTextStreamId } from './schemas.ts'
+import { hunkSchema, moveOptionsSchema, versionGuardSchema, editSchema, environmentSchema, intentSchema, policySchema, processIdSchema, remotePath, sandboxReleaseIdSchema, targetSchema, textStreamIdSchema } from './schemas.ts'
+import type { SshSandboxReleaseId, SshTextStreamId } from './schemas.ts'
 
 const MAX_FRAME_BYTES = 64 * 1024 * 1024
 const MAX_TEXT_BYTES = 8 * 1024 * 1024
@@ -62,6 +62,7 @@ export async function runSshHelper(transport: HelperTransport): Promise<void> {
   const processes = new RemoteProcesses(ctx, root, SSH_MAX_PROCESS_HANDLES, 30_000)
   const lifetime = new AbortController()
   const iterators = new Map<SshTextStreamId, { iterator: AsyncIterator<string>; controller: AbortController }>()
+  const releases = new Map<SshSandboxReleaseId, () => Promise<void>>()
   let lease: NodeJS.Timeout | undefined
   let leaseMs = 30_000
   let initialized = false
@@ -74,6 +75,8 @@ export async function runSshHelper(transport: HelperTransport): Promise<void> {
       for (const record of iterators.values()) record.controller.abort(lifetime.signal.reason)
       await Promise.allSettled([...iterators.values()].map(async record => record.iterator.return?.()))
       iterators.clear()
+      await Promise.allSettled([...releases.values()].map(release => release()))
+      releases.clear()
       try { await processes.close() }
       finally {
         try { await runtime.close() }
@@ -157,7 +160,17 @@ export async function runSshHelper(transport: HelperTransport): Promise<void> {
       const input = z.object({ argv: z.array(z.string()).min(1), policy: policySchema }).strict().parse(raw)
       const resolved = await policy(input.policy, signal)
       if (resolved.mode === 'danger-full-access') throw new Error('Unconfined argv does not need a sandbox wrapper')
-      return ctx.sandbox.confine(input.argv, resolved as SandboxPolicy, signal)
+      const { release, ...confined } = await ctx.sandbox.confine(input.argv, resolved as SandboxPolicy, signal)
+      const releaseId = randomUUID() as SshSandboxReleaseId
+      releases.set(releaseId, release)
+      return { ...confined, releaseId }
+    }
+    if (method === 'sandbox.release') {
+      const { releaseId } = z.object({ releaseId: sandboxReleaseIdSchema }).strict().parse(raw)
+      const release = releases.get(releaseId)
+      releases.delete(releaseId)
+      await release?.()
+      return null
     }
     if (method === 'fs.resolve' || method === 'fs.lstat') {
       const input = z.object({ path: z.string(), cwd: remotePath.optional() }).strict().parse(raw)

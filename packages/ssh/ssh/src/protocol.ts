@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Wire version shared by the client package, the installed helper and its embedded PTC worker. */
-export const SSH_PROTOCOL_VERSION = 3
+export const SSH_PROTOCOL_VERSION = 4
 
 /** Maximum prepared or running process handles owned by one helper. */
 export const SSH_MAX_PROCESS_HANDLES = 128

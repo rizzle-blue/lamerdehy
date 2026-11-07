@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ferramenta de módulos isolados",
+    "description": "Executa em um processo isolado as ferramentas adicionadas pelo modo Tidebloom."
+  }
+}

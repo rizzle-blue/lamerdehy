@@ -399,8 +399,7 @@ export default defineConfig({
         'packages/client/ui-primitives/src/JsonTree.tsx',
         'packages/client/ui-settings-models/src/client/DeepSeekOnboardingDialog.tsx',
         'packages/client/ui-settings-models/src/client/welcome-store.ts',
-        'packages/extensions/*/src/**/*.ts',
-        'packages/extensions/*/src/**/*.tsx',
+        'packages/extensions/{cordis-host-runner,cordis-client-runner,tool-cordis,ui-cordis}/src/**/*.{ts,tsx}',
         // Typert correctness is checked by its uninstrumented suites,
         // including compiler fixtures and byte-for-byte catalog reproduction.
         'packages/typert/*/src/**/*.{ts,tsx}',

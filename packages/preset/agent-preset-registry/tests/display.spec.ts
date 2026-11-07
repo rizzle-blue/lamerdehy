@@ -9,11 +9,11 @@ import { presetDisplayText, type BuiltInPresetCopyKey } from '../src/display.ts'
 const t = (key: BuiltInPresetCopyKey): string => `t:${key}`
 
 describe('presetDisplayText', () => {
-  it('resolves a shipped preset through its dictionary keys', () => {
-    expect(presetDisplayText({ id: 'standard' }, t)).toEqual({
-      name: 't:presetStandardName',
-      description: 't:presetStandardDescription',
-    })
+  it.each([
+    ['standard', 't:presetStandardName', 't:presetStandardDescription'],
+    ['tidebloom', 't:presetTidebloomName', 't:presetTidebloomDescription'],
+  ])('resolves shipped preset %s through its dictionary keys', (id, name, description) => {
+    expect(presetDisplayText({ id }, t)).toEqual({ name, description })
   })
 
   it('keeps user-authored metadata untranslated', () => {

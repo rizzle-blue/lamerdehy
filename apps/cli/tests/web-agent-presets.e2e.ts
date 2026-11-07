@@ -3,8 +3,8 @@ import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-r
 import { subagentModelSelectionProjectionDefinition } from '@deepseek-ai/dsh-tool-subagent/src/model-selection-state.ts'
 import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -110,6 +110,7 @@ async function bootWeb(
   profilePackages: readonly string[] = [],
   profileBundles?: readonly string[],
   surface: 'web' | 'desktop' | 'spec' = 'spec',
+  sourceCheckout = false,
 ): Promise<Context> {
   const storageRoot = join(profileHome, 'storages')
   const overrides: PatchOptions[] = [
@@ -217,7 +218,7 @@ async function bootWeb(
   await writeFile(rootConfig, '[]\n')
   return await boot('dsh-test', rootConfig, [...bundlePatches, ...overrides], async (bootCtx) => {
     bootCtx.provide('profileContext', { name: surface, dir: profileDir, patchPath: profile.patchPath,
-      installAnchor: INSTALL_ANCHOR, home, cwd: home,
+      installAnchor: INSTALL_ANCHOR, sourceCheckout, home, cwd: home,
       startedBundles: profileBundles ?? ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
       overlays: [], telemetryDisabledEnv: '1' })
     await bootCtx.plugin(PluginPackages, { resolution })
@@ -1156,6 +1157,90 @@ describe('a session keeps the preset it was created with', () => {
       await handle.dispose()
     }
   })
+})
+
+describe('the development-only Tidebloom preset', () => {
+  it('retains live revisions, sandboxes module tools, enforces guardrails and keeps extension data', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'dsh-tidebloom-'))
+    onTestFinished(() => rm(home, { recursive: true, force: true }))
+    const devCtx = await bootWeb(home, [], [], undefined, 'spec', true)
+    onTestFinished(() => devCtx.fiber.dispose())
+    expect((await devCtx.agentPresets.list()).find(row => row.id === 'tidebloom'))
+      .toMatchObject({ id: 'tidebloom' })
+    expect((await devCtx.agentPresets.resolve('tidebloom')).broken).toBeUndefined()
+    const create = async () => {
+      const handle = await devCtx.agents.create({
+        sessionId: SessionId(randomUUID()),
+        setup: agentCtx => devCtx.agentPresets.mount(agentCtx, 'tidebloom').then(() => undefined),
+      })
+      onTestFinished(() => handle.dispose())
+      return handle
+    }
+    const first = await create()
+    expect(toolNames(devCtx, first.agent)).toEqual(expect.arrayContaining([
+      'self_extend', 'cordis_inspect_list', 'cordis_inspect_query', 'plugin_manager', 'subagent',
+    ]))
+    expect(toolParameterNames(devCtx, first.agent, 'subagent')).toContain('agent_preset')
+    const call = (args: object) => executeToolFixture(devCtx, {
+      callId: ToolCallId(randomUUID()), name: 'self_extend', arguments: args,
+      agent: first.agent, signal: new AbortController().signal,
+    })
+    const echo = join(home, 'tidebloom-echo.mjs')
+    await writeFile(echo, `import { writeFile } from 'node:fs/promises'
+export const tools = [{ name: 'tidebloom_echo', description: 'Write the Tidebloom sentinel to a file.', parameters: { type: 'object', properties: { target: { type: 'string' } }, additionalProperties: false } }]
+export async function execute(_name, args) { await writeFile(args.target ?? 'echo.txt', 'TIDEBLOOM_ECHO_OK'); return 'TIDEBLOOM_ECHO_OK' }
+`)
+    const added = await call({ action: 'add', id: 'echo', module: echo })
+    expect(added.isError, JSON.stringify(added.content)).toBe(false)
+    const patchPath = join(home, 'profiles', 'spec', 'cordis.patch.yml')
+    const patch = await readFile(patchPath, 'utf8')
+    expect(patch).toContain('preset-tidebloom')
+    expect(patch).toContain('self-extensions')
+    const stored = join(home, 'profiles', 'spec', 'self-extensions', 'tidebloom')
+    const modules = join(stored, 'modules')
+    expect((await readdir(modules)).filter(file => file.endsWith('.mjs'))).toHaveLength(1)
+    expect(toolNames(devCtx, first.agent)).not.toContain('tidebloom_echo')
+    const second = await create()
+    expect(toolNames(devCtx, second.agent)).toContain('tidebloom_echo')
+    const runEcho = (args: object) => executeToolFixture(devCtx, {
+      callId: ToolCallId(randomUUID()), name: 'tidebloom_echo', arguments: args,
+      agent: second.agent, signal: new AbortController().signal,
+    })
+    const echoed = await runEcho({})
+    expect(echoed.isError, JSON.stringify(echoed.content)).toBe(false)
+    expect(echoed.value).toBe('TIDEBLOOM_ECHO_OK')
+    const dataFile = join(stored, 'data', 'echo', 'echo.txt')
+    expect(await readFile(dataFile, 'utf8')).toBe('TIDEBLOOM_ECHO_OK')
+    // Sandbox backends keep temp areas writable, so the outside target lives under the home directory.
+    const outsideRoot = await mkdtemp(join(homedir(), '.dsh-tidebloom-outside-'))
+    onTestFinished(() => rm(outsideRoot, { recursive: true, force: true }))
+    const outside = join(outsideRoot, 'outside.txt')
+    const denied = await runEcho({ target: outside })
+    expect(denied.isError).toBe(true)
+    expect(JSON.stringify(denied.content)).toContain('[sandbox: file access denied under workspace-write mode]')
+    await expect(readFile(outside, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+    const broken = join(home, 'tidebloom-broken.mjs')
+    await writeFile(broken, "throw new Error('TIDEBLOOM_BROKEN')\n")
+    const rejected = await call({ action: 'add', id: 'broken', module: broken })
+    expect(rejected.isError).toBe(true)
+    expect(JSON.stringify(rejected.content)).toContain('failed its sandboxed manifest check')
+    const listed = await call({ action: 'list' })
+    const listedText = listed.content.map(block => block.type === 'text' ? block.text : '').join('')
+    expect((JSON.parse(listedText) as { extensions: { id: string }[] }).extensions.map(row => row.id)).toEqual(['echo'])
+    const third = await create()
+    expect(toolNames(devCtx, third.agent)).toContain('tidebloom_echo')
+    expect((await devCtx.agentPresets.list()).find(row => row.id === 'tidebloom')?.broken).toBeUndefined()
+    const shell = await call({ action: 'add', id: 'shell', package: '@deepseek-ai/dsh-tool-bash' })
+    expect(shell.isError).toBe(true)
+    expect(JSON.stringify(shell.content)).toContain('not on this mode\'s package allowlist')
+    expect((await call({ action: 'remove', id: 'echo' })).isError).toBe(false)
+    expect(await readFile(patchPath, 'utf8')).not.toContain('preset-tidebloom')
+    expect((await readdir(modules)).filter(file => file.endsWith('.mjs'))).toEqual([])
+    expect(await readFile(dataFile, 'utf8')).toBe('TIDEBLOOM_ECHO_OK')
+    const editor = await call({ action: 'add', id: 'editor', package: '@deepseek-ai/dsh-tool-str-replace-editor' })
+    expect(editor.isError, JSON.stringify(editor.content)).toBe(false)
+    expect(toolNames(devCtx, (await create()).agent)).toContain('str_replace_editor')
+  }, 120_000)
 })
 
 afterAll(async () => { await ctx?.fiber.dispose() })

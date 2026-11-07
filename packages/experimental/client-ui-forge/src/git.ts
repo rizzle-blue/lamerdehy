@@ -5,7 +5,7 @@ import type {} from '@deepseek-ai/dsh-fs'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
 import type { Session } from '@deepseek-ai/dsh-session'
-import type { SubprocessCollectedOutputs } from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessCollectedOutputs, SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
 import { deadline } from '@deepseek-ai/dsh-timeout'
 import { baseBranches, parseName, parseRemotes, parseTopLevel } from './parse.ts'
 import type { GitRemote } from './parse.ts'
@@ -241,34 +241,43 @@ async function runGit(
   using timeout = deadline(signal, config.gitTimeoutMs, 'FORGE_PANEL_GIT_TIMEOUT')
   const program = await ctx.subprocess.resolveExecutable(config.gitCommand, undefined, timeout.signal)
   const command = [program, ...GIT_PREFIX, ...args]
-  const argv = policy.mode === 'danger-full-access'
-    ? command
-    : (await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)).argv
-  timeout.signal.throwIfAborted()
+  const confined = policy.mode === 'danger-full-access'
+    ? undefined
+    : await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)
+  const argv = confined?.argv ?? command
+  try { timeout.signal.throwIfAborted() }
+  catch (error) { await confined?.release(); throw error }
   // Environment entries preserve filter subsection names containing '=' in configuration keys.
   const overrides = Object.entries(configOverrides)
   /* jscpd:ignore-start -- the bounded spawn-and-collect sequence matches the
      worktree service's runner; the two differ in policy, environment, and
      error text, and a shared helper would make this panel depend on the
      worktree package or add a subprocess API for two experimental callers. */
-  const child = ctx.subprocess.spawn({
-    argv,
-    cwd,
-    env: {
-      ...GIT_ENV,
-      GIT_CONFIG_COUNT: String(overrides.length),
-      ...Object.fromEntries(overrides.flatMap(([key, value], index) => [
-        [`GIT_CONFIG_KEY_${index}`, key], [`GIT_CONFIG_VALUE_${index}`, value],
-      ])),
-    },
-    signal: timeout.signal,
-    graceMs: config.graceMs,
-    stdio: {
-      stdin: 'ignore',
-      stdout: { maxBytes: config.maxOutputBytes },
-      stderr: { maxBytes: config.maxOutputBytes },
-    },
-  })
+  let child: SubprocessHandle
+  try {
+    child = ctx.subprocess.spawn({
+      argv,
+      cwd,
+      env: {
+        ...GIT_ENV,
+        GIT_CONFIG_COUNT: String(overrides.length),
+        ...Object.fromEntries(overrides.flatMap(([key, value], index) => [
+          [`GIT_CONFIG_KEY_${index}`, key], [`GIT_CONFIG_VALUE_${index}`, value],
+        ])),
+        ...confined?.env,
+      },
+      signal: timeout.signal,
+      graceMs: config.graceMs,
+      stdio: {
+        stdin: 'ignore',
+        stdout: { maxBytes: config.maxOutputBytes },
+        stderr: { maxBytes: config.maxOutputBytes },
+      },
+    })
+  } catch (error) {
+    await confined?.release()
+    throw error
+  }
   try {
     const outcome = await child.done
     timeout.signal.throwIfAborted()
@@ -284,6 +293,7 @@ async function runGit(
   } finally {
     child.terminate()
     await child.waitForExit()
+    await confined?.release()
   }
   /* jscpd:ignore-end */
 }

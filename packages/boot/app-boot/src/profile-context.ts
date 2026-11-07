@@ -19,6 +19,8 @@ export interface ProfileContext {
   readonly dir: string
   readonly patchPath: string
   readonly installAnchor: string
+  /** Whether DSH runs from a source checkout; Loader disabled expressions may read this launch-time fact. */
+  readonly sourceCheckout: boolean
   readonly cwd: string
   readonly home: string
   /** Bundle packages used to start this process, before any persisted edits. */

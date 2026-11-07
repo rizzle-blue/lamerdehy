@@ -34,12 +34,17 @@ import {
 } from '@deepseek-ai/node-addon-system/landlock-run'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { SandboxProvider, SandboxUnavailableError, SandboxUnsupportedPolicyError, canonicalPath } from '@deepseek-ai/dsh-sandbox'
+import {
+  NO_RESTRICTIONS, SandboxProvider, SandboxUnavailableError, SandboxUnsupportedPolicyError, assertRestrictionsSupported, canonicalPath,
+} from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, ConfinedSandboxMode, RunnerFailureRule, SandboxEnforcement, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { AclWriteGrant, assertTempRootOutsideWorkspace, registerAclDiagnosisSkill, tempWriteSid, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
+
+/** Legacy rungs keep no per-call state. */
+const NO_RELEASE = (): Promise<void> => Promise.resolve()
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
 export interface Config {
@@ -320,26 +325,34 @@ export class LocalSandboxProvider extends SandboxProvider {
    * @param signal - cancellation before policy resolution or grant creation.
    * @returns the wrapped argv plus the selected backend's enforcement completeness, denial
    *   signatures, and structured runner-failure rules; throws the fail-closed
-   *   `SANDBOX_UNAVAILABLE` error when the platform has no usable runner.
+   *   `SANDBOX_UNAVAILABLE` error when the platform has no usable runner, and
+   *   `SANDBOX_UNSUPPORTED_POLICY` for read-deny, write-deny, or network
+   *   restrictions, which no current rung enforces.
    */
   async confine(argv: readonly string[], policy: SandboxPolicy, signal?: AbortSignal): Promise<ConfinedArgv> {
     signal?.throwIfAborted()
     policy = { ...policy, workspaceRoot: canonicalPath(policy.workspaceRoot) }
     if (this.runnerCommand !== undefined) {
+      assertRestrictionsSupported(policy, NO_RESTRICTIONS, 'runnerCommand')
       return Promise.resolve<ConfinedArgv>({
         argv: [...this.runnerCommand, ...bwrapProfileArgs(policy), '--', ...argv],
         enforcement: 'full',
         denialSignatures: DENIAL_SIGNATURES.runnerCommand,
         runnerFailureRules: [{ fatalSignatures: this.configuredRunnerFailureSignatures }],
+        env: {},
+        release: NO_RELEASE,
       })
     }
     const selected = this.selectRunner(policy.mode)
+    assertRestrictionsSupported(policy, NO_RESTRICTIONS, selected.runner)
     const runnerArgv = this.runnerArgv(selected.runner, policy)
     return Promise.resolve<ConfinedArgv>({
       argv: [...runnerArgv, '--', ...argv],
       enforcement: selected.enforcement,
       denialSignatures: DENIAL_SIGNATURES[selected.runner],
       runnerFailureRules: RUNNER_FAILURE_RULES[selected.runner],
+      env: {},
+      release: NO_RELEASE,
     })
   }
 

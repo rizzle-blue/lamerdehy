@@ -91,11 +91,11 @@ it('cancels a pending confinement operation before spawning', async () => {
   try {
     await entered.promise
     controller.abort()
-    confinement.resolve({ argv: ['unused'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] })
+    confinement.resolve({ argv: ['unused'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() })
     expect((await pending).error?.kind).toBe('abort')
     expect(spawn).not.toHaveBeenCalled()
   } finally {
-    confinement.resolve({ argv: ['unused'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] })
+    confinement.resolve({ argv: ['unused'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() })
     await pending
     confine.mockRestore()
     spawn.mockRestore()

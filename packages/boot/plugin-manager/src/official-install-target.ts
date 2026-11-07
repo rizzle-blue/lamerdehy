@@ -1,7 +1,7 @@
 /** Select Official bundle packages from the running installation without importing provider code. */
 import { existsSync, globSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { bundlePatchPaths, type ProfileManifest } from '@deepseek-ai/dsh-app-boot'
+import { bundlePatchPaths, isSourceInstallation, type ProfileManifest } from '@deepseek-ai/dsh-app-boot'
 
 interface WorkspaceManifest extends ProfileManifest {
   main?: string
@@ -23,10 +23,7 @@ function manifestAt(file: string): WorkspaceManifest {
  */
 export function officialBundleInstallTarget(name: string, installAnchor: string, version: string): { spec: string; version: string } {
   const anchor = realpathSync(installAnchor)
-  const installation = manifestAt(anchor)
-  const source = installation.name === '@deepseek-ai/dsh'
-    && Object.values(installation.dependencies ?? {}).some(value => value.startsWith('workspace:'))
-  if (!source) return { spec: `${name}@${version}`, version }
+  if (!isSourceInstallation(installAnchor)) return { spec: `${name}@${version}`, version }
   const root = resolve(dirname(anchor), '../..')
   if (anchor !== join(root, 'apps', 'cli', 'package.json')
     || !existsSync(join(root, 'package.json'))

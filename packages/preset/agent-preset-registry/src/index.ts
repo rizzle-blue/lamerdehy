@@ -63,6 +63,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
   private readonly generations = new Map<ScopeKey, Generation>()
   private readonly bindings = new WeakMap<ScopeKey, Binding>()
   private readonly switches = new Map<string, Promise<unknown>>()
+  private readonly changes = new Map<string, Promise<unknown>>()
 
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'agentPresets')
@@ -379,6 +380,22 @@ export class AgentPresetRegistry extends TypertRemoteService {
     this.switches.set(agent.id, guard)
     try { return await turn } finally {
       if (this.switches.get(agent.id) === guard) this.switches.delete(agent.id)
+    }
+  }
+
+  /**
+   * Run one composition change for a preset after every earlier change to the same preset settles.
+   * A failed change does not block later ones. Changes to different presets run independently.
+   * @param id - Preset id whose composition the change edits.
+   * @param change - The change; its result or rejection is returned unchanged.
+   * @returns The change's result.
+   */
+  async serializeChange<T>(id: string, change: () => Promise<T>): Promise<T> {
+    const run = (this.changes.get(id) ?? Promise.resolve()).then(change)
+    const guard = run.catch(() => undefined)
+    this.changes.set(id, guard)
+    try { return await run } finally {
+      if (this.changes.get(id) === guard) this.changes.delete(id)
     }
   }
 

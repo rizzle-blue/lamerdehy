@@ -2,7 +2,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
-import type { SubprocessCollectedOutputs } from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessCollectedOutputs, SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
 import { deadline } from '@deepseek-ai/dsh-timeout'
 
 /** Resolved process resource limits owned by the worktree service. */
@@ -49,22 +49,28 @@ export async function runCommand(
   timeout.signal.throwIfAborted()
   const program = await ctx.subprocess.resolveExecutable(argv[0], undefined, timeout.signal)
   const command = [program, ...argv.slice(1)]
-  const wrapped = policy.mode === 'danger-full-access'
-    ? command
-    : (await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)).argv
-  timeout.signal.throwIfAborted()
-  const child = ctx.subprocess.spawn({
-    argv: wrapped,
-    cwd,
-    env: { ...GIT_ENV, GIT_TERMINAL_PROMPT: '0', GIT_LFS_SKIP_SMUDGE: '1', GIT_NO_LAZY_FETCH: '1', ...env },
-    signal: timeout.signal,
-    graceMs: config.graceMs,
-    stdio: {
-      stdin: 'ignore',
-      stdout: { maxBytes: config.maxOutputBytes },
-      stderr: { maxBytes: config.maxOutputBytes },
-    },
-  })
+  const confined = policy.mode === 'danger-full-access'
+    ? undefined
+    : await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)
+  let child: SubprocessHandle
+  try {
+    timeout.signal.throwIfAborted()
+    child = ctx.subprocess.spawn({
+      argv: confined?.argv ?? command,
+      cwd,
+      env: { ...GIT_ENV, GIT_TERMINAL_PROMPT: '0', GIT_LFS_SKIP_SMUDGE: '1', GIT_NO_LAZY_FETCH: '1', ...env, ...confined?.env },
+      signal: timeout.signal,
+      graceMs: config.graceMs,
+      stdio: {
+        stdin: 'ignore',
+        stdout: { maxBytes: config.maxOutputBytes },
+        stderr: { maxBytes: config.maxOutputBytes },
+      },
+    })
+  } catch (error) {
+    await confined?.release()
+    throw error
+  }
   try {
     const outcome = await child.done
     timeout.signal.throwIfAborted()
@@ -80,5 +86,6 @@ export async function runCommand(
   } finally {
     child.terminate()
     await child.waitForExit()
+    await confined?.release()
   }
 }

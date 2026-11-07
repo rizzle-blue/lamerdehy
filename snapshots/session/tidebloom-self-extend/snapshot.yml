@@ -1,0 +1,8 @@
+version: 1
+scenario: tidebloom-self-extend
+profile: headless
+composition: tidebloom-self-extend
+recording: authored
+header:
+  class: tidebloom-self-extend
+  pin: true

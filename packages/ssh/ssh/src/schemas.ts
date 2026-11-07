@@ -12,6 +12,10 @@ export type SshTextStreamId = Branded<'SshTextStreamId'>
 export const processIdSchema = z.uuid().transform((value): SshProcessId => value as SshProcessId)
 /** Admit a text iterator identity from the private helper protocol. */
 export const textStreamIdSchema = z.uuid().transform((value): SshTextStreamId => value as SshTextStreamId)
+/** Identity of one confinement whose per-call state the owning SSH helper holds until release. */
+export type SshSandboxReleaseId = Branded<'SshSandboxReleaseId'>
+/** Admit a confinement release identity from the private helper protocol. */
+export const sandboxReleaseIdSchema = z.uuid().transform((value): SshSandboxReleaseId => value as SshSandboxReleaseId)
 
 /** A remote POSIX absolute path; spelling is preserved until remote canonicalization. */
 export const remotePath = z.string().min(1).refine(value => value.startsWith('/') && !value.includes('\0'), 'expected an absolute POSIX path')

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Selbsterweiterungstool",
+    "description": "Lässt den Agenten im Tidebloom-Modus die Plugins seines eigenen Modus verwalten."
+  }
+}

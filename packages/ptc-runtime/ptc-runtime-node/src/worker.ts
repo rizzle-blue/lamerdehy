@@ -237,7 +237,8 @@ export class ProgramWorker {
         // Evaluation reports startup failure; cleanup still owns any process already created.
       })
       const handle = this.handle
-      return handle === undefined || await terminateProcess(handle, this.config.graceMs)
+      try { return handle === undefined || await terminateProcess(handle, this.config.graceMs) }
+      finally { await this.confined?.release() }
     })().then((drained) => {
       this.unregister?.()
       this.cleanupPending = false
@@ -286,9 +287,12 @@ export class ProgramWorker {
     this.confined = policy.mode === 'danger-full-access' ? undefined : await this.ctx.sandbox.confine(argv, { ...policy, mode: policy.mode }, this.controller.signal)
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- Confinement may yield while disposal closes the process.
     if (this.closed) return
-    const env: NodeJS.ProcessEnv = Object.fromEntries(Object.keys(process.env)
-      .filter(key => !STARTUP_ENVIRONMENT_NAMES.has(key.toUpperCase()) && key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')
-      .map(key => [key, undefined]))
+    const env: NodeJS.ProcessEnv = {
+      ...Object.fromEntries(Object.keys(process.env)
+        .filter(key => !STARTUP_ENVIRONMENT_NAMES.has(key.toUpperCase()) && key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')
+        .map(key => [key, undefined])),
+      ...this.confined?.env,
+    }
     if (packaged) {
       env.DSH_PTC_RUNTIME_NODE = '1'
       env.NODE_OPTIONS = `${heapFlag} --experimental-vm-modules`

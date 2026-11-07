@@ -83,6 +83,7 @@ export {
   type RuntimeResolutionEntry,
   type RuntimeResolution,
 } from './profile.ts'
+export { isSourceInstallation } from './installation.ts'
 export {
   PluginPackages,
   type PluginPackage,

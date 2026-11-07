@@ -140,7 +140,7 @@ describe('PythonPtcRuntime — controlled subprocess pipes', () => {
     onTestFinished(() => { for (const stream of [stdin, stdout, stderr, proto]) stream.destroy() })
     const ctx = await createRuntimeContext({ mode: 'read-only' })
     vi.spyOn(ctx.sandbox, 'confine').mockImplementation(async argv => ({
-      argv: [...argv], enforcement: 'partial', denialSignatures: [], runnerFailureRules: [],
+      argv: [...argv], enforcement: 'partial', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve(),
     }))
     spawnMock.mockImplementation((bin: string) => {
       const error = Object.assign(new Error('executable disappeared'), {
@@ -195,6 +195,8 @@ describe('PythonPtcRuntime — controlled subprocess pipes', () => {
     vi.spyOn(ctx.sandbox, 'confine').mockImplementation(async argv => ({
       argv: [...argv], enforcement: 'full', denialSignatures: ['permission denied'],
       runnerFailureRules: [{ allowedExitCodes: [127], fatalSignatures: ['sandbox-fatal:'] }],
+      env: {},
+      release: () => Promise.resolve(),
     }))
     spawnMock.mockImplementation(() => {
       setImmediate(() => {

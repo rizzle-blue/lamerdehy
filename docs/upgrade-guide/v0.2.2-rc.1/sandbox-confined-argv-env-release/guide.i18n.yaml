@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-rc.1/sandbox-confined-argv-env-release/guide.md
+/:
+  en: 5ec1f0e15426ee37
+  zh: fcd50f7dea102d59
+/confinedargv-carries-env-and-release-ssh-helper-protocol-4:
+  en: f81731455b2cc395
+  zh: ce992646cf4fc9a1
+/confinedargv-carries-env-and-release-ssh-helper-protocol-4/change:
+  en: 9307c4aae9bfdc3e
+  zh: 3f5f997c0e280896
+/confinedargv-carries-env-and-release-ssh-helper-protocol-4/migration:
+  en: 0f9d47d9c2f277d1
+  zh: 4fbe9f1a97a57aa7

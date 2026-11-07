@@ -31,7 +31,7 @@ class PassthroughSandbox extends SandboxProvider {
 
   async confine(argv: readonly string[], policy: SandboxPolicy): Promise<ConfinedArgv> {
     this.calls.push({ argv, policy })
-    return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
+    return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() }
   }
 }
 

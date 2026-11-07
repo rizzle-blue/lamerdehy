@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Sandbox-Modulwerkzeug",
+    "description": "Führt die vom Tidebloom-Modus hinzugefügten Werkzeuge in einem isolierten Prozess aus."
+  }
+}

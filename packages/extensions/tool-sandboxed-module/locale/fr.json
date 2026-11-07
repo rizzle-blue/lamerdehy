@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Outil de modules isolés",
+    "description": "Exécute dans un processus isolé les outils ajoutés par le mode Tidebloom."
+  }
+}

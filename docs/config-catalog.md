@@ -429,7 +429,7 @@ export interface Config {
 
 - `inject`: `subprocess`
 - `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/shell/bash-local/src/index.ts:41`](../packages/shell/bash-local/src/index.ts)
+- `source`: [`packages/shell/bash-local/src/index.ts:51`](../packages/shell/bash-local/src/index.ts)
 
 ```ts config-catalog
 /** Validated plugin configuration with live command budgets. */
@@ -2835,7 +2835,7 @@ export type LaunchConfig = {
 
 - `inject`: `subprocess`
 - `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/shell/pwsh-local/src/index.ts:58`](../packages/shell/pwsh-local/src/index.ts)
+- `source`: [`packages/shell/pwsh-local/src/index.ts:68`](../packages/shell/pwsh-local/src/index.ts)
 
 ```ts config-catalog
 /** Validated plugin configuration with live command budgets. */
@@ -2926,7 +2926,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-sandbox-local`
 
-- `source`: [`packages/sandbox/sandbox-local/src/index.ts:45`](../packages/sandbox/sandbox-local/src/index.ts)
+- `source`: [`packages/sandbox/sandbox-local/src/index.ts:50`](../packages/sandbox/sandbox-local/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config. All optional — `static Config` supplies the defaults. */
@@ -4329,6 +4329,60 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-ralph -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-sandboxed-module -->
+<a id="deepseek-aidsh-tool-sandboxed-module"></a>
+
+## `@deepseek-ai/dsh-tool-sandboxed-module`
+
+- `inject`: `tools` · `ptcRuntime` · `sandboxPolicy` · `profileContext`
+- `source`: [`packages/extensions/tool-sandboxed-module/src/index.ts:28`](../packages/extensions/tool-sandboxed-module/src/index.ts)
+
+```ts config-catalog
+/** Stored module, its private data directory, write permission, and declared tools. */
+export interface Config {
+  /** `file:` URL of the stored module copy; it exports `execute(name, args)`. */
+  module: string
+  /** Absolute private data directory of this extension. */
+  dataDir: string
+  /** Where sandboxed calls may write: nowhere, the data directory, or the session workspace plus the data directory. */
+  write: 'none' | 'data' | 'workspace'
+  /** Tools the module declared in its manifest check. */
+  tools: ModuleTool[]
+}
+
+/** One model-visible tool declared by the module's `tools` export. */
+export interface ModuleTool {
+  /** Tool name; lowercase letters, digits, and underscores. */
+  name: string
+  /** Model-visible tool description. */
+  description: string
+  /** JSON Schema of the tool's arguments. */
+  parameters: Record<string, unknown>
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-sandboxed-module -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-self-extend -->
+<a id="deepseek-aidsh-tool-self-extend"></a>
+
+## `@deepseek-ai/dsh-tool-self-extend`
+
+- `inject`: `tools` · `configEditor` · `agentPresets` · `profileContext` · `ptcRuntime`
+- `source`: [`packages/extensions/tool-self-extend/src/index.ts:24`](../packages/extensions/tool-self-extend/src/index.ts)
+
+```ts config-catalog
+/** The preset entry, its sole approval-free editable group, and the packages it may add in-process. */
+export interface Config {
+  /** Loader id of the declaring preset row, such as preset-tidebloom. */
+  presetEntry: string
+  /** Top-level cordis:group row containing this preset's self-added plugins. */
+  extensionGroup: string
+  /** Installed plugin packages self_extend may add in-process; every other package is refused. */
+  allowedPackages: string[]
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-self-extend -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
 <a id="deepseek-aidsh-tool-session-query"></a>

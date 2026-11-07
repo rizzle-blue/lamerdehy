@@ -557,7 +557,7 @@ it.each([true, false])('classifies confined process spawn failure with runner ev
   const h = await setup()
   const runner = '/missing-ptc-sandbox-runner'
   const confine = vi.spyOn(h.ctx.sandbox, 'confine').mockResolvedValue({
-    argv: [runner], enforcement: 'partial', denialSignatures: [], runnerFailureRules: [],
+    argv: [runner], enforcement: 'partial', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve(),
   })
   h.spawn.mockImplementation(() => {
     throw Object.assign(new Error('spawn failed'), { code: 'ENOENT', path: runnerFailure ? runner : '/other', syscall: `spawn ${runner}` })
@@ -574,6 +574,8 @@ it('reports a sandbox runner refusal before the REPL is ready', async () => {
   const confine = vi.spyOn(h.ctx.sandbox, 'confine').mockResolvedValue({
     argv: ['sandbox-runner'], enforcement: 'full', denialSignatures: [],
     runnerFailureRules: [{ allowedExitCodes: [127], fatalSignatures: ['sandbox runner rejected'] }],
+    env: {},
+    release: () => Promise.resolve(),
   })
   const pending = h.start({ ...request, sandboxPolicy: { mode: 'read-only', workspaceRoot: process.cwd() } }, NO_INITIAL_FRAME)
   try {

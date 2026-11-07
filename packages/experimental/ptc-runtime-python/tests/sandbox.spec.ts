@@ -45,6 +45,8 @@ function confinement(argv: readonly string[]): ConfinedArgv {
   return {
     argv: [...argv], enforcement: 'partial', denialSignatures: ['permission denied'],
     runnerFailureRules: [{ allowedExitCodes: [127], fatalSignatures: ['sandbox-fatal:'] }],
+    env: {},
+    release: () => Promise.resolve(),
   }
 }
 

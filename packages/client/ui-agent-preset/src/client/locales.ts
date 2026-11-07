@@ -21,6 +21,8 @@ export type AgentPresetSettingsKey =
   | 'presetMinimalDescription'
   | 'presetCordisName'
   | 'presetCordisDescription'
+  | 'presetTidebloomName'
+  | 'presetTidebloomDescription'
   | 'inUse'
   | 'noDescription'
   | 'brokenBadge'
@@ -59,6 +61,9 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetCordisName: 'Creator mode',
   presetCordisDescription:
     'Customize DSH through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+  presetTidebloomName: 'Tidebloom mode',
+  presetTidebloomDescription:
+    'Available only in development checkouts. Includes everything in Creator mode, and lets the agent add, configure, and remove plugins in this mode on its own, then use them in delegated tasks.',
 
   inUse: 'New task default',
 
@@ -100,6 +105,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetMinimalDescription: 'Agent 使用终端和图片读取工具，并支持上下文压缩，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
   presetCordisDescription: '用对话定制 DSH：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
+  presetTidebloomName: 'Tidebloom 模式',
+  presetTidebloomDescription: '仅在开发检出中可用。包含创造模式的全部能力，并允许 Agent 自主为本模式添加、配置和移除插件，再在委派任务中使用。',
 
   inUse: '新任务默认',
 
@@ -145,6 +152,8 @@ export const ja = {
   'presetMinimalDescription': 'エージェントはターミナルと画像読み取りを使用し、コンテキスト圧縮にも対応します。基本的な性能のテストや比較に役立ちます。',
   'presetCordisName': 'クリエイターモード',
   'presetCordisDescription': '会話を通じて DSH をカスタマイズします。機能や UI を追加するプラグインをエージェントに書かせたり、ツールとプロンプトを組み合わせて独自のモードを作成したりできます。',
+  'presetTidebloomName': 'Tidebloom モード',
+  'presetTidebloomDescription': '開発用チェックアウトでのみ利用できます。クリエイターモードのすべての機能に加え、エージェントがこのモードのプラグインを自ら追加、設定、削除し、委任したタスクで使用できます。',
   'inUse': '新しいタスクの既定',
   'noDescription': '説明はありません。',
   'brokenBadge': '読み込みに失敗',
@@ -184,6 +193,9 @@ export const es = {
   presetCordisName: 'Modo creador',
   presetCordisDescription:
     'Personaliza DSH a través de la conversación. Deje que el agente escriba complementos que agreguen funciones o interfaz de usuario, o combine herramientas e indicaciones para crear su propio modo.',
+  presetTidebloomName: 'Modo Tidebloom',
+  presetTidebloomDescription:
+    'Solo disponible en copias de desarrollo. Incluye todo lo del modo creador y permite que el agente agregue, configure y quite complementos de este modo por sí mismo y luego los use en tareas delegadas.',
 
   inUse: 'Nueva tarea predeterminada',
 
@@ -229,6 +241,9 @@ export const fr = {
   presetCordisName: 'Mode Créateur',
   presetCordisDescription:
     "Personnalisez DSH via la conversation. Laissez l'agent écrire des plugins qui ajoutent des fonctionnalités ou une interface utilisateur, ou combinez des outils et des invites pour créer votre propre mode.",
+  presetTidebloomName: 'Mode Tidebloom',
+  presetTidebloomDescription:
+    'Disponible uniquement dans les copies de développement. Inclut tout le mode Créateur et permet à l’agent d’ajouter, de configurer et de retirer lui-même des plug-ins de ce mode, puis de les utiliser dans des tâches déléguées.',
 
   inUse: 'Nouvelle tâche par défaut',
 
@@ -274,6 +289,9 @@ export const de = {
   presetCordisName: 'Erstellermodus',
   presetCordisDescription:
     'Passen Sie DSH durch Gespräche an. Lassen Sie den Agenten Plugins schreiben, die Funktionen oder Benutzeroberflächen hinzufügen, oder kombinieren Sie Tools und Eingabeaufforderungen, um Ihren eigenen Modus zu erstellen.',
+  presetTidebloomName: 'Tidebloom-Modus',
+  presetTidebloomDescription:
+    'Nur in Entwicklungs-Checkouts verfügbar. Umfasst alles aus dem Erstellermodus und lässt den Agenten Plugins dieses Modus selbstständig hinzufügen, konfigurieren und entfernen und sie dann in delegierten Aufgaben verwenden.',
 
   inUse: 'Neuer Aufgabenstandard',
 
@@ -319,6 +337,9 @@ export const ru = {
   presetCordisName: 'Режим автора',
   presetCordisDescription:
     'Настройте DSH через разговор. Позвольте агенту писать плагины, которые добавляют функции или пользовательский интерфейс, или комбинируйте инструменты и подсказки для создания собственного режима.',
+  presetTidebloomName: 'Режим Tidebloom',
+  presetTidebloomDescription:
+    'Доступен только в рабочих копиях для разработки. Включает все возможности режима автора и позволяет агенту самостоятельно добавлять, настраивать и удалять плагины этого режима, а затем использовать их в делегированных задачах.',
 
   inUse: 'Новая задача по умолчанию',
 
@@ -364,6 +385,9 @@ export const pt = {
   presetCordisName: 'Modo criador',
   presetCordisDescription:
     'Personalize DSH por meio de conversa. Deixe o agente escrever plug-ins que adicionem recursos ou UI, ou combine ferramentas e prompts para criar seu próprio modo.',
+  presetTidebloomName: 'Modo Tidebloom',
+  presetTidebloomDescription:
+    'Disponível apenas em cópias de desenvolvimento. Inclui tudo do modo criador e permite que o agente adicione, configure e remova plug-ins deste modo por conta própria e depois os use em tarefas delegadas.',
 
   inUse: 'Novo padrão de tarefa',
 

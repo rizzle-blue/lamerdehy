@@ -27,7 +27,7 @@ English | [中文](README.zh.md)
 
 Mount this provider with the shared [`SSH connection`](../ssh/README.md), SSH filesystem and SSH subprocess providers. It has no package-specific configuration. Await `confine(argv, policy, signal)` to resolve each policy and command through the running remote helper.
 
-Pass a complete `read-only` or `workspace-write` policy. The workspace is interpreted and canonicalized on the remote host. Consumers bypass `confine()` for `danger-full-access`; the connection does not invent an additional local/remote policy flag.
+Pass a complete `read-only` or `workspace-write` policy without `denyRead`, `denyWrite`, or `network`; the SSH wire does not carry them, so such a policy rejects with `SANDBOX_UNSUPPORTED_POLICY` before the helper is contacted. The workspace is interpreted and canonicalized on the remote host. Consumers bypass `confine()` for `danger-full-access`; the connection does not invent an additional local/remote policy flag.
 
 -----
 
@@ -37,7 +37,7 @@ Pass a complete `read-only` or `workspace-write` policy. The workspace is interp
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The running helper canonicalizes the policy root and asks its loaded sandbox provider for the enforcing argv, enforcement level and runner-failure evidence. The SSH subprocess provider executes that returned argv directly and owns fd 7 transport and managed process lifetime. Cancellation or an unavailable backend rejects before the caller receives a command to launch.
+The running helper canonicalizes the policy root and asks its loaded sandbox provider for the enforcing argv, enforcement level and runner-failure evidence. The SSH subprocess provider executes that returned argv directly and owns fd 7 transport and managed process lifetime. The helper keeps each confinement's release hook under a `releaseId` until the client's returned `release()` sends `sandbox.release`, or the connection closes. Cancellation or an unavailable backend rejects before the caller receives a command to launch.
 
 </details>
 

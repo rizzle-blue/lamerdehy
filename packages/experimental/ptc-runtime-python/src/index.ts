@@ -1015,6 +1015,7 @@ export class PythonPtcRuntime extends PtcRuntime {
       controller.abort({ kind: 'timeout', message: `wall-clock ceiling reached (${this.config.maxWallMs}ms)` } satisfies PtcRunFailure)
     }, this.config.maxWallMs)
     let launched = false
+    let confined: ConfinedArgv | undefined
     try {
       controller.signal.throwIfAborted()
       let input: string
@@ -1023,7 +1024,6 @@ export class PythonPtcRuntime extends PtcRuntime {
       } catch (error: unknown) {
         return { logs: [], sandbox, error: { kind: 'worker-exit', message: `failed to read the python bootstrap: ${messageOf(error)}` } }
       }
-      let confined: ConfinedArgv | undefined
       // Unbuffered native output stays observable before process-group teardown.
       let argv: [string, ...string[]] = [this.pythonBin, '-u', '-I', '-c', PYTHON_BOOTSTRAP_LOADER]
       if (policy.mode !== 'danger-full-access') {
@@ -1052,6 +1052,7 @@ export class PythonPtcRuntime extends PtcRuntime {
       clearTimeout(wallTimer)
       request.signal?.removeEventListener('abort', onAbort)
       if (!launched) complete()
+      await confined?.release()
     }
   }
   /* jscpd:ignore-end */
@@ -1164,7 +1165,7 @@ export class PythonPtcRuntime extends PtcRuntime {
     try {
       child = spawn(argv[0], argv.slice(1), {
         cwd: request.cwd,
-        env: pythonEnvironment(),
+        env: { ...pythonEnvironment(), ...confined?.env },
         detached: true, // Own the process group used by termination and exit observation.
         stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
       })

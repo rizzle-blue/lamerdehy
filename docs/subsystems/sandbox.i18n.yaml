@@ -6,14 +6,14 @@
   en: e0d4876306b192c3
   zh: 63baaa0c79e87deb
 /process-sandbox/modes-and-enforcement:
-  en: 6777e1b1270ec3e1
-  zh: 22533fb3304c1dd8
+  en: 4c00175dfa8f0130
+  zh: 5700ee283bea4245
 /process-sandbox/per-call-policy:
-  en: fac6f5d32327dfb6
-  zh: 1b8e4a1af48f33e8
+  en: dc23788e9c951f7a
+  zh: 1a93e4950f175435
 /process-sandbox/wrapped-argv-and-classification-dialects:
-  en: 2ba8930762e92e40
-  zh: 220f64da1a9e5d57
+  en: d0c9a10bd88fdef0
+  zh: 1baa3345a416a5dd
 /process-sandbox/provider-and-fail-closed-errors:
-  en: a90a38fe4b11737c
-  zh: 2397768e48712617
+  en: e9fd56f074c89456
+  zh: 0b9e0e5547c5676e

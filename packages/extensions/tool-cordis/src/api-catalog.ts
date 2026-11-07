@@ -246,6 +246,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Committed preset identity.',
       },
       {
+        signature: 'async serializeChange<T>(id: string, change: () => Promise<T>): Promise<T>',
+        description: 'Run one composition change for a preset after every earlier change to the same preset settles. A failed change does not block later ones. Changes to different presets run independently.',
+        parameters: [{ name: 'id', description: 'Preset id whose composition the change edits.' }, { name: 'change', description: 'The change; its result or rejection is returned unchanged.' }],
+        returns: 'The change\'s result.',
+      },
+      {
         signature: 'async acquireScope(id?: string): Promise<{ key: ScopeKey } & AsyncDisposable>',
         description: 'Read current registrations for cold transcript presentation.',
         parameters: [{ name: 'id', description: 'Preset identity or the default.' }],
@@ -2445,6 +2451,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: 'readonly packageManager?: ProfilePnpmInvocation',
         description: 'Packaged applications supply their bundled runtime instead of a PATH executable.',
+        parameters: [],
+      },
+      {
+        signature: 'readonly sourceCheckout: boolean',
+        description: 'Whether DSH runs from a source checkout; Loader disabled expressions may read this launch-time fact.',
         parameters: [],
       },
       {
@@ -5949,7 +5960,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConfinedArgv',
-    declaration: 'export interface ConfinedArgv {\n    argv: string[];\n    enforcement: SandboxEnforcement;\n    denialSignatures: readonly string[];\n    runnerFailureRules: readonly RunnerFailureRule[];\n}',
+    declaration: 'export interface ConfinedArgv {\n    argv: string[];\n    enforcement: SandboxEnforcement;\n    denialSignatures: readonly string[];\n    runnerFailureRules: readonly RunnerFailureRule[];\n    env: Readonly<Record<string, string>>;\n    release: () => Promise<void>;\n}',
   },
   {
     name: 'ConfinedSandboxMode',
@@ -8085,11 +8096,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SandboxExecutionPolicy',
-    declaration: 'export interface SandboxExecutionPolicy {\n    mode: SandboxMode;\n    workspaceRoot: string;\n    additionalWritableRoots?: readonly string[];\n    sessionId?: SessionId;\n}',
+    declaration: 'export interface SandboxExecutionPolicy {\n    mode: SandboxMode;\n    workspaceRoot: string;\n    additionalWritableRoots?: readonly string[];\n    sessionId?: SessionId;\n    denyRead?: readonly string[];\n    allowRead?: readonly string[];\n    denyWrite?: readonly string[];\n    network?: SandboxNetworkPolicy;\n}',
   },
   {
     name: 'SandboxMode',
     declaration: 'export type SandboxMode = \'read-only\' | \'workspace-write\' | \'danger-full-access\';',
+  },
+  {
+    name: 'SandboxNetworkPolicy',
+    declaration: 'export interface SandboxNetworkPolicy {\n    allowedDomains: readonly string[];\n}',
   },
   {
     name: 'SandboxPolicy',

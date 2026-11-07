@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "自我扩展工具",
+    "description": "让 Tidebloom 模式的 Agent 管理本模式自身的插件组成。"
+  }
+}

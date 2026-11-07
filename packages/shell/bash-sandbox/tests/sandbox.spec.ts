@@ -58,7 +58,7 @@ const RUNNER_FORMS = [
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
 const passthrough = (argv: readonly string[]): ConfinedArgv =>
-  ({ argv: [...argv], enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE })
+  ({ argv: [...argv], enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE, env: {}, release: () => Promise.resolve() })
 
 /**
  * Boot a context with a recording fake `ctx.sandbox` (behavior injectable
@@ -212,7 +212,7 @@ describe('the provider hand-off', () => {
 
   it('hands the provider\'s returned argv directly to ctx.subprocess.spawn', async () => {
     const returnedArgv = ['env', 'DSH_WRAP=1', 'bash', '-c', 'printf "%s" "$DSH_WRAP"']
-    const { ctx, bash } = await setup({}, () => ({ argv: returnedArgv, enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE }))
+    const { ctx, bash } = await setup({}, () => ({ argv: returnedArgv, enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE, env: {}, release: () => Promise.resolve() }))
     const spawn = vi.spyOn(ctx.subprocess, 'spawn')
     const result = await run(bash, bash.resolve({ command: 'printf "%s" "$DSH_WRAP"' }))
     expect(result.stdout.text).toBe('1')
@@ -238,6 +238,8 @@ describe('the provider hand-off', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
 
     try {
@@ -276,6 +278,68 @@ describe('the provider hand-off', () => {
 
 })
 
+describe('per-call confinement state', () => {
+  /** A passthrough wrap that records how often its release hook ran and carries a proxy-style env overlay. */
+  function tracked(env: Record<string, string> = {}) {
+    const released = { count: 0 }
+    const wrap = (argv: readonly string[]): ConfinedArgv =>
+      ({ ...passthrough(argv), env, release: () => { released.count++; return Promise.resolve() } })
+    return { released, wrap }
+  }
+
+  it('overlays the confinement environment on the child, above the caller\'s own entries', async () => {
+    const { wrap } = tracked({ HTTPS_PROXY: 'http://127.0.0.1:9', CALLER_VAR: 'from-confinement' })
+    const { bash } = await setup({}, wrap)
+    const result = await run(bash, bash.resolve({ command: 'printf "%s|%s" "$HTTPS_PROXY" "$CALLER_VAR"', env: { CALLER_VAR: 'from-caller' } }))
+    expect(result.stdout.text).toBe('http://127.0.0.1:9|from-confinement')
+  })
+
+  it('releases once after the process exits, for foreground and background commands', async () => {
+    const { released, wrap } = tracked()
+    const { bash } = await setup({}, wrap)
+    await run(bash, bash.resolve({ command: 'true' }))
+    expect(released.count).toBe(1)
+    await (await start(bash, bash.resolve({ command: 'true' }))).done
+    expect(released.count).toBe(2)
+  })
+
+  it('releases when the spawn throws, so a failed launch leaves no confinement state', async () => {
+    const { released, wrap } = tracked()
+    const { ctx, bash } = await setup({}, wrap)
+    const spawn = vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(() => { throw new Error('launch refused') })
+    try {
+      const execution = await bash.execute(bash.resolve({ command: 'true' }))
+      await execution.done
+      expect(released.count).toBe(1)
+    } finally { spawn.mockRestore() }
+  })
+
+  it('releases a confinement prepared after the caller already cancelled', async () => {
+    const { released, wrap } = tracked()
+    const gate = Promise.withResolvers<undefined>()
+    const preparing = Promise.withResolvers<undefined>()
+    const { bash } = await setup({}, async (argv) => { preparing.resolve(undefined); await gate.promise; return wrap(argv) })
+    const controller = new AbortController()
+    const reason = new Error('cancelled while confinement was preparing')
+    const pending = bash.execute(bash.resolve({ command: 'true', signal: controller.signal }))
+    await preparing.promise
+    controller.abort(reason)
+    await expect(pending).rejects.toBe(reason)
+    expect(released.count).toBe(0)
+    gate.resolve(undefined)
+    await vi.waitFor(() => { expect(released.count).toBe(1) })
+  })
+
+  it('releases a confinement whose preparation returned just as the caller cancelled', async () => {
+    const { released, wrap } = tracked()
+    const controller = new AbortController()
+    const reason = new Error('cancelled right after confinement returned')
+    const { bash } = await setup({}, (argv) => { controller.abort(reason); return wrap(argv) })
+    await expect(bash.execute(bash.resolve({ command: 'true', signal: controller.signal }))).rejects.toBe(reason)
+    await vi.waitFor(() => { expect(released.count).toBe(1) })
+  })
+})
+
 describe('fail closed', () => {
   it('propagates the provider\'s structured SANDBOX_UNAVAILABLE on run() and start()', async () => {
     const { bash } = await setup({}, () => { throw new SandboxUnavailableError('read-only') })
@@ -300,6 +364,8 @@ describe('fail closed', () => {
         enforcement: 'full',
         denialSignatures: UNIX_SIGNATURES,
         runnerFailureRules: RUNNER_FAILURE,
+        env: {},
+        release: () => Promise.resolve(),
       }))
       const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
       try {
@@ -333,6 +399,8 @@ describe('fail closed', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
     vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(() => {
       throw Object.assign(new Error('spawn ENOEXEC'), { code: 'ENOEXEC', syscall: 'spawn' })
@@ -360,6 +428,8 @@ describe('fail closed', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
     // This pins an alternative SubprocessRuntime's synchronous seam, not the
     // shipped local behavior.
@@ -384,6 +454,8 @@ describe('fail closed', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
     const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
     const workdir = join(parent, 'missing')
@@ -509,6 +581,8 @@ describe('result facts', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
     const result = await run(bash, bash.resolve({ command: `exit ${exitCode}` }))
     expect(result.exitCode).toBe(exitCode)
@@ -531,7 +605,7 @@ describe('result facts', () => {
   })
 
   it('carries the provider\'s partial-enforcement fact through unchanged', async () => {
-    const { bash } = await setup({}, argv => ({ argv: [...argv], enforcement: 'partial', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE }))
+    const { bash } = await setup({}, argv => ({ argv: [...argv], enforcement: 'partial', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE, env: {}, release: () => Promise.resolve() }))
     const result = await run(bash, bash.resolve({ command: 'true' }))
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'partial' })
   })
@@ -544,6 +618,8 @@ describe('background sandbox facts', () => {
       enforcement: 'full',
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
+      env: {},
+      release: () => Promise.resolve(),
     }))
     const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
     try {
@@ -634,7 +710,7 @@ describe('background sandbox facts', () => {
     let call = 0
     const { bash } = await setup({}, (argv) => {
       const wrap = wraps[Math.min(call++, wraps.length - 1)] as Pick<ConfinedArgv, 'enforcement' | 'denialSignatures'>
-      return { argv: [...argv], ...wrap, runnerFailureRules: RUNNER_FAILURE }
+      return { argv: [...argv], ...wrap, runnerFailureRules: RUNNER_FAILURE, env: {}, release: () => Promise.resolve() }
     })
     const slow = (await start(bash, bash.resolve({ command: 'sleep 0.4; echo "x: Permission denied" >&2; exit 1' })))
     const quick = (await start(bash, bash.resolve({ command: 'true' })))

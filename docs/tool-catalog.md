@@ -27,6 +27,8 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-present` | `present` | `ctx.workingDirectory`, `ctx.tools`, `ctx.fs`, `ctx.agents` | `tool/call`, `deliverables/presented after a successful final result`, `tool/result` | - | Deliveries belong to the calling Session; Web ui-deliverables supplies source-file opening and cards. |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.workingDirectory`, `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`, `tool/result` | - | The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\...` paths and `$env:NAME` variables. |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_inspect_list`, `cordis_inspect_query` | `ctx.tools`, `ctx.cordisInspect` | `tool/call`, `tool/result` | - | Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager. |
+| `@deepseek-ai/dsh-tool-self-extend` | `self_extend` | `ctx.tools`, `ctx.configEditor`, `ctx.agentPresets`, `ctx.profileContext`, `ctx.ptcRuntime` | `tool/call`, `tool/result`, `profile patch preset override` | - | Tidebloom mode, shown only in source checkouts, edits its own preset's self-extension group without approval inside fixed guardrails: module extensions run only through the sandboxed-module tool, and package extensions must be on the mode's allowlist. New sessions of the mode and subagents started with agent_preset tidebloom receive the change. |
+| `@deepseek-ai/dsh-tool-sandboxed-module` | `example_sandboxed_tool` | `ctx.tools`, `ctx.ptcRuntime`, `ctx.sandboxPolicy`, `ctx.profileContext` | `tool/call`, `tool/result`, `files in the extension data directory or session workspace, per its write permission` | - | Registered by Tidebloom self_extend for module extensions; tool names, descriptions and parameters come from the module manifest. Every call runs the module in a fresh OS-sandboxed Node process with an empty environment, no harness tools and no approval prompts. |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.workingDirectory`, `ctx.tools`, `ctx.terminals`, `an owning Agent at execution time` | `tool/call`, `PTY shell state`, `tool/result` | - | One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description. |
 | `@deepseek-ai/dsh-tool-pwsh-persistent` | `pwsh` | `ctx.workingDirectory`, `ctx.tools`, `ctx.terminals`, `an owning Agent at execution time` | `tool/call`, `PTY shell state`, `tool/result` | - | One owner-isolated persistent pwsh tool, the Windows counterpart of the persistent bash tool; deployment composition supplies a pwsh-dialect PTY backend and may override the model-facing environment description. |
 | `@deepseek-ai/dsh-tool-str-replace-editor` | `str_replace_editor` | `ctx.tools`, `ctx.fs` | `tool/call`, `fs/observed after view presence/absence, edit absence, or successful mutation`, `tool/result` | - | Standalone view/create/unique literal replace/line insert tool over the filesystem seam; it composes with any shell or terminal API. |
@@ -878,6 +880,86 @@ Run a read-only query declared by an Inspect Provider. platform, provider, and m
 Source: [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager.
+
+<a id="deepseek-aidsh-tool-self-extend"></a>
+
+## `@deepseek-ai/dsh-tool-self-extend`
+
+### `self_extend`
+
+Extend this mode's own plugin composition without approval, inside fixed guardrails: list, add, update, or remove rows in its self-extension group. A module extension is a self-contained ESM file that exports tools (an array of { name, description, parameters }) and execute(name, args); every call runs in a fresh OS-sandboxed Node process with an empty environment and no harness tools, and may write only where its write permission allows. A package extension must be on this mode's package allowlist and loads in-process. Changes persist in the profile and apply to new sessions of this mode and to subagents started with agent_preset set to this mode; this session keeps its current tools. A change that fails to load is rolled back and reported. Other modes and profile-wide plugins are out of scope; use plugin_manager for those.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Operation.",
+      "enum": [
+        "list",
+        "add",
+        "update",
+        "remove"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "description": "Extension row id: lowercase letters, digits, and hyphens. Required except for list."
+    },
+    "package": {
+      "type": "string",
+      "description": "For add or update: an installed plugin package on this mode's allowlist, such as @deepseek-ai/dsh-tool-str-replace-editor; it loads in-process. Mutually exclusive with module."
+    },
+    "module": {
+      "type": "string",
+      "description": "For add or update: absolute path to a self-contained ESM file (.js or .mjs) that exports tools and execute(name, args). The file is copied, so later edits need another update. Mutually exclusive with package."
+    },
+    "write": {
+      "type": "string",
+      "description": "For module extensions: where its sandboxed calls may write. none: nowhere; data: only its private data directory; workspace: the session workspace and its data directory, never wider than the session's own mode and never a home, root, or DSH directory. Defaults to data on add; omitted on update keeps the current value.",
+      "enum": [
+        "none",
+        "data",
+        "workspace"
+      ]
+    },
+    "config": {
+      "description": "For package extensions: the row's complete config object. Omitted on update keeps the current config."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "For add or update: false saves the row disabled. Defaults to true on add; omitted on update keeps the current state."
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
+```
+
+Source: [`packages/extensions/tool-self-extend/src/index.ts`](../packages/extensions/tool-self-extend/src/index.ts)
+
+Tidebloom mode, shown only in source checkouts, edits its own preset's self-extension group without approval inside fixed guardrails: module extensions run only through the sandboxed-module tool, and package extensions must be on the mode's allowlist. New sessions of the mode and subagents started with agent_preset tidebloom receive the change.
+
+<a id="deepseek-aidsh-tool-sandboxed-module"></a>
+
+## `@deepseek-ai/dsh-tool-sandboxed-module`
+
+### `example_sandboxed_tool`
+
+Example tool declared by a sandboxed Tidebloom module.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/extensions/tool-sandboxed-module/src/index.ts`](../packages/extensions/tool-sandboxed-module/src/index.ts)
+
+Registered by Tidebloom self_extend for module extensions; tool names, descriptions and parameters come from the module manifest. Every call runs the module in a fresh OS-sandboxed Node process with an empty environment, no harness tools and no approval prompts.
 
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 

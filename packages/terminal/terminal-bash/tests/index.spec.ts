@@ -27,7 +27,7 @@ import type {
 
 class EmptySandbox extends SandboxProvider {
   async confine(_argv: readonly string[], _policy: SandboxPolicy): Promise<ConfinedArgv> {
-    return { argv: [], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
+    return { argv: [], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() }
   }
 }
 
@@ -36,7 +36,7 @@ class RecordingSandbox extends SandboxProvider {
 
   async confine(argv: readonly string[], policy: SandboxPolicy): Promise<ConfinedArgv> {
     this.calls.push({ argv, policy })
-    return { argv: ['/sandbox', '--', ...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
+    return { argv: ['/sandbox', '--', ...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() }
   }
 }
 
@@ -245,7 +245,7 @@ describe('BashTerminalBackend startup rollback', () => {
     const signal = await entered.promise
     controller.abort(new Error('cancel confinement'))
     expect(signal.aborted).toBe(true)
-    response.resolve({ argv: ['bash'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] })
+    response.resolve({ argv: ['bash'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [], env: {}, release: () => Promise.resolve() })
     await expect(spawning).rejects.toThrow('cancel confinement')
     expect(spawnTerminal).not.toHaveBeenCalled()
   })

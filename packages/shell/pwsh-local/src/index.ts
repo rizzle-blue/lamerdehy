@@ -26,6 +26,16 @@ import { clampTimeout, deadline, MAX_TIMER_DELAY_MS, timeoutOf } from '@deepseek
 import { resolvePwshPath } from './resolve.ts'
 
 /* jscpd:ignore-start -- deliberate call-for-call mirror of dsh-bash-local (Agent Note: pwsh-tool-and-executor). */
+
+/** What a subclass's argv preparation hands {@link PwshLocalExecutor.executeArgv}. */
+export interface PreparedArgv {
+  /** The exact argv to spawn. */
+  argv: readonly string[]
+  /** Variables overlaid last on the child's environment. */
+  env: Readonly<Record<string, string>>
+  /** Awaited once after the process settles, fails to spawn, or the preparation is abandoned; never rejects. */
+  release: () => Promise<void>
+}
 /**
  * Model-friendly environment overrides for PowerShell: disable colors and
  * pagers that would garble tool output. `TERM=dumb` is a POSIX concept and is
@@ -200,6 +210,7 @@ export class PwshLocalExecutor extends ShellExecutor {
     stdoutMaxBytes: number,
     signal: AbortSignal | undefined,
     argv: readonly string[],
+    confinementEnv: Readonly<Record<string, string>>,
   ): SubprocessSpawnSpec {
     const collect = (maxBytes: number): SubprocessCollect =>
       ({ maxBytes, spill: { maxBytes: this.config.maxSpillBytes.get() } })
@@ -213,7 +224,7 @@ export class PwshLocalExecutor extends ShellExecutor {
       },
       graceMs: this.config.graceMs.get(),
       signal,
-      env: { ...ENV_OVERRIDES, ...spec.env, ...spec.dshEnv },
+      env: { ...ENV_OVERRIDES, ...spec.env, ...spec.dshEnv, ...confinementEnv },
     }
   }
 
@@ -237,14 +248,15 @@ export class PwshLocalExecutor extends ShellExecutor {
    * deadline, and cancellation semantics of this executor. Subclasses use this
    * after replacing the public command's shell argv at an execution boundary.
    * @param spec - resolved execution settings and caller-owned command metadata.
-   * @param argvOrPrepare - exact argv, or preparation using the execution cancellation signal.
+   * @param argvOrPrepare - exact argv, or preparation using the execution cancellation signal. A
+   *   preparation returns the argv with the confinement's environment overlay and release hook.
    * @param onStarted - installs provider facts synchronously before the handle can settle.
    * @returns the live execution handle; spawn rejection settles the handle as
    *   killed while `result()` carries the same failure as its rejection.
    */
   protected async executeArgv(
     spec: ShellExecSpec,
-    argvOrPrepare: readonly string[] | ((signal: AbortSignal) => Promise<readonly string[]>),
+    argvOrPrepare: readonly string[] | ((signal: AbortSignal) => Promise<PreparedArgv>),
     onStarted?: (process: ShellExecution) => void,
   ): Promise<ShellExecution> {
     // Deadline wiring by expiry policy. Each arm supplies the spawn signal,
@@ -271,19 +283,25 @@ export class PwshLocalExecutor extends ShellExecutor {
     }
 
     let argv: readonly string[] = []
+    let confinementEnv: Readonly<Record<string, string>> = {}
+    let release: () => Promise<void> = () => Promise.resolve()
     let preparationTimedOut = false
     if (typeof argvOrPrepare === 'function') {
       const signal = spawnSignal ?? new AbortController().signal
       const cancelled = Promise.withResolvers<never>()
       const abort = (): void => { cancelled.reject(signal.reason) }
       signal.addEventListener('abort', abort, { once: true })
+      const preparation = Promise.resolve().then(() => { signal.throwIfAborted(); return argvOrPrepare(signal) })
       try {
-        argv = await Promise.race([
-          Promise.resolve().then(() => { signal.throwIfAborted(); return argvOrPrepare(signal) }),
-          cancelled.promise,
-        ])
+        const prepared = await Promise.race([preparation, cancelled.promise])
+        argv = prepared.argv
+        confinementEnv = prepared.env
+        release = prepared.release
         signal.throwIfAborted()
       } catch (error) {
+        // A preparation that settles after the race was lost still owns confinement state.
+        void preparation.then(async (prepared) => { await prepared.release() }, () => undefined)
+        release = () => Promise.resolve()
         if (!classify().timedOut) {
           disarm()
           throw error
@@ -300,7 +318,7 @@ export class PwshLocalExecutor extends ShellExecutor {
     let syncSpawnError: { error: unknown } | undefined
     try {
       if (!preparationTimedOut) {
-        running = this.ctx.subprocess.spawn(this.spawnSpec(spec, spec.stdoutMaxBytes, spawnSignal, argv))
+        running = this.ctx.subprocess.spawn(this.spawnSpec(spec, spec.stdoutMaxBytes, spawnSignal, argv, confinementEnv))
       }
     } catch (error) {
       syncSpawnError = { error }
@@ -312,12 +330,19 @@ export class PwshLocalExecutor extends ShellExecutor {
       ? PwshLocalExecutor.collected(running)
       : { stdout: emptyReader, stderr: emptyReader }
     const spawnThrow = (): unknown => (syncSpawnError as { error: unknown }).error
-    const spawned = preparationTimedOut
+    // The confinement's per-call state ends with the process: on exit, on spawn failure,
+    // or at once when preparation timed out. Release never rejects.
+    const outcome = preparationTimedOut
       ? Promise.resolve({ exitCode: null, signal: null })
       : running !== undefined ? running.done
       // The original throw is preserved for callers even when it was not an Error.
       // eslint-disable-next-line prefer-promise-reject-errors
         : Promise.reject(spawnThrow())
+    // The process outcome settles only after release resolves, and release itself never rejects.
+    const spawned = outcome.then(
+      async (value) => { await release(); return value },
+      async (error: unknown) => { await release(); throw error },
+    )
 
     // A provider rejection produces no process output, so the subprocess
     // service has nothing to buffer: once the provider rejected, its

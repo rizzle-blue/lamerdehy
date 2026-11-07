@@ -50,7 +50,7 @@ interface ConfineCall {
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
 const passthrough = (argv: readonly string[]): ConfinedArgv =>
-  ({ argv: [...argv], enforcement: 'full', denialSignatures: ['access is denied', 'access to the path'], runnerFailureRules: [] })
+  ({ argv: [...argv], enforcement: 'full', denialSignatures: ['access is denied', 'access to the path'], runnerFailureRules: [], env: {}, release: () => Promise.resolve() })
 
 /** A subprocess service whose spawn() throws SYNCHRONOUSLY — the paths the async service never produces. */
 function throwingSubprocessRuntime(error: unknown): new (ctx: Context) => Service {
@@ -185,6 +185,8 @@ describe('SandboxPwshExecutor asynchronous confinement', () => {
       const closed = await setup(() => ({
         argv: ['node', '--', 'pwsh'], enforcement: 'full', denialSignatures: [],
         runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+        env: {},
+        release: () => Promise.resolve(),
       }), throwingSubprocessRuntime(attributable))
       contexts.push(closed.ctx)
       await expect(run(closed.executor, closed.executor.resolve({ command: 'echo never', sandboxPolicy: RO })))
@@ -305,6 +307,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [],
+      env: {},
+      release: () => Promise.resolve(),
     }))
     await expect(run(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO, signal: controller.signal })))
       .rejects.toThrow('caller-cancel')
@@ -329,6 +333,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      env: {},
+      release: () => Promise.resolve(),
     }))
     await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO })))
       .rejects.toThrow(SandboxUnavailableError)
@@ -341,6 +347,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      env: {},
+      release: () => Promise.resolve(),
     }), throwingSubprocessRuntime(attributable))
     await expect(run(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO })))
       .rejects.toThrow(SandboxUnavailableError)
@@ -361,6 +369,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      env: {},
+      release: () => Promise.resolve(),
     }), throwingSubprocessRuntime(attributable))
     const contained = (await start(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO })))
     await contained.done
@@ -381,6 +391,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      env: {},
+      release: () => Promise.resolve(),
     }))
     await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO })))
       .rejects.toThrow(SandboxUnavailableError)
@@ -411,6 +423,8 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      env: {},
+      release: () => Promise.resolve(),
     }))
     const proc = (await start(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO })))
     await proc.done

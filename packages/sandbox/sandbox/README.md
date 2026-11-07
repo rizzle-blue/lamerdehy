@@ -61,6 +61,12 @@ The mode names the file effects a command may perform; enforcement completeness 
 
 Enforcement is reported per call: `full` means the backend governs every promised file effect, while `partial` means an active backend or older kernel ABI governs only a subset — the Windows ACL rung and older Landlock ABIs are the current partial cases, so a consumer that requires the absolute boundary can reject or surface them.
 
+### Read denies, protected writes, and network
+
+A policy may also carry `denyRead` and `allowRead` paths, `denyWrite` paths that stay write-denied inside writable roots, and a `network` host allowlist. Each is optional; absence leaves that dimension as it was. A provider enforces a requested field or rejects the call with `SANDBOX_UNSUPPORTED_POLICY` naming every field it cannot enforce — it never drops one silently. No current rung enforces them, so a policy that requests one is rejected until a backend that does is selected. `protectedWritePaths()` and `credentialReadDenyPaths()` supply the built-in lists a consumer may pass; the seam applies neither on its own.
+
+A confinement also returns `env`, which the consumer overlays last on the child's environment, and `release()`, which the consumer awaits once after the child ends, fails to spawn, or is abandoned.
+
 ### Denied calls and escalation
 
 When a confined call is denied, the operation reports a denial marker naming the mode — `[sandbox: file access denied under <mode> mode]` — and, when the composition advertises escalation, an escalation hint. The model may retry the exact call once with `sandbox_permissions` (the narrowest wider mode that suffices) plus a `justification`; the approval service obtains consent for the operation. The request retains its audit reason and supplies English, Chinese, and Japanese presentation copy from `src/locales.ts`, with the model's justification unchanged. Missing translations follow the locale service's fallback chain, ultimately English; requesters own their translated presentation text. A wider mode requires approval and applies to that one call only. Repeating the call's effective mode succeeds without approval; narrower targets remain invalid.

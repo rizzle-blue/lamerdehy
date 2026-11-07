@@ -674,6 +674,15 @@ async recompose(ctx: Context, id: string): Promise<AgentPreset>
  */
 @Remote('select') async select(agent: Agent, agentPreset: string): Promise<string>
 
+/**
+ * Run one composition change for a preset after every earlier change to the same preset settles.
+ * A failed change does not block later ones. Changes to different presets run independently.
+ * @param id - Preset id whose composition the change edits.
+ * @param change - The change; its result or rejection is returned unchanged.
+ * @returns The change's result.
+ */
+async serializeChange<T>(id: string, change: () => Promise<T>): Promise<T>
+
 /** Read current registrations for cold transcript presentation.
  * @param id Preset identity or the default.
  * @returns A revision lease; dispose it after the scoped read completes.

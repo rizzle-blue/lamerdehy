@@ -504,9 +504,15 @@ importers:
       '@deepseek-ai/dsh-tool-pwsh-persistent':
         specifier: workspace:*
         version: link:../../packages/shell/tool-pwsh-persistent
+      '@deepseek-ai/dsh-tool-sandboxed-module':
+        specifier: workspace:*
+        version: link:../../packages/extensions/tool-sandboxed-module
       '@deepseek-ai/dsh-tool-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/tool-schedule
+      '@deepseek-ai/dsh-tool-self-extend':
+        specifier: workspace:*
+        version: link:../../packages/extensions/tool-self-extend
       '@deepseek-ai/dsh-tool-skill':
         specifier: workspace:*
         version: link:../../packages/skill/tool-skill
@@ -3326,9 +3332,15 @@ importers:
       '@deepseek-ai/dsh-tool-pwsh-persistent':
         specifier: workspace:*
         version: link:../../shell/tool-pwsh-persistent
+      '@deepseek-ai/dsh-tool-sandboxed-module':
+        specifier: workspace:*
+        version: link:../../extensions/tool-sandboxed-module
       '@deepseek-ai/dsh-tool-schedule':
         specifier: workspace:*
         version: link:../../schedule/tool-schedule
+      '@deepseek-ai/dsh-tool-self-extend':
+        specifier: workspace:*
+        version: link:../../extensions/tool-self-extend
       '@deepseek-ai/dsh-tool-skill':
         specifier: workspace:*
         version: link:../../skill/tool-skill
@@ -11843,6 +11855,86 @@ importers:
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
 
+  packages/extensions/tool-sandboxed-module:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
+      '@deepseek-ai/dsh-sandbox':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox
+      '@deepseek-ai/dsh-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@deepseek-ai/dsh-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+
+  packages/extensions/tool-self-extend:
+    dependencies:
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
+      '@deepseek-ai/dsh-agent-preset-registry':
+        specifier: workspace:*
+        version: link:../../preset/agent-preset-registry
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-config-editor':
+        specifier: workspace:*
+        version: link:../../boot/config-editor
+      '@deepseek-ai/dsh-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@deepseek-ai/dsh-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+
   packages/extensions/ui-cordis:
     devDependencies:
       '@deepseek-ai/cordis':
@@ -18462,9 +18554,15 @@ importers:
       '@deepseek-ai/dsh-tool-pwsh-persistent':
         specifier: workspace:*
         version: link:../../packages/shell/tool-pwsh-persistent
+      '@deepseek-ai/dsh-tool-sandboxed-module':
+        specifier: workspace:*
+        version: link:../../packages/extensions/tool-sandboxed-module
       '@deepseek-ai/dsh-tool-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/tool-schedule
+      '@deepseek-ai/dsh-tool-self-extend':
+        specifier: workspace:*
+        version: link:../../packages/extensions/tool-self-extend
       '@deepseek-ai/dsh-tool-skill':
         specifier: workspace:*
         version: link:../../packages/skill/tool-skill

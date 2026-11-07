@@ -20,12 +20,21 @@ export {
 } from './escalation.ts'
 export type { EscalationApproval, EscalationApprover, EscalationOutcome, EscalationRequest } from './escalation.ts'
 export { canonicalPath, workspaceWritableRoots, writableRoots, SandboxInvalidRootError } from './roots.ts'
+export {
+  NO_RESTRICTIONS,
+  assertRestrictionsSupported,
+  credentialReadDenyPaths,
+  protectedWritePaths,
+  requestedRestrictions,
+} from './restrictions.ts'
+export type { SandboxNetworkPolicy, SandboxRestrictions } from './restrictions.ts'
+import type { SandboxNetworkPolicy } from './restrictions.ts'
 
 /**
  * File-effect policy for confined processes. `read-only` permits only required
  * sinks such as `/dev/null`; `workspace-write` also permits the workspace,
- * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement. Network
- * and process visibility are outside this vocabulary.
+ * explicit extra roots, and backend-defined temp areas; `danger-full-access` bypasses confinement.
+ * Read denies, protected write paths, and network are separate optional policy fields.
  */
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 
@@ -57,6 +66,26 @@ export interface SandboxExecutionPolicy {
    * for agentless calls, which fall back to per-call backend state.
    */
   sessionId?: SessionId
+  /**
+   * Absolute paths the process must not read. Absence or an empty list denies
+   * nothing. Writable roots and {@link allowRead} entries beneath a denied path
+   * stay readable. A provider that cannot enforce read denies refuses the policy.
+   */
+  denyRead?: readonly string[]
+  /** Absolute paths re-allowed for reading beneath a {@link denyRead} entry; meaningless without one. */
+  allowRead?: readonly string[]
+  /**
+   * Absolute paths inside writable roots that stay write-denied, whether or not
+   * they exist yet. Absence or an empty list denies nothing. A provider that
+   * cannot enforce write denies refuses the policy.
+   */
+  denyWrite?: readonly string[]
+  /**
+   * Network reachable by the process. Absence leaves network unrestricted; a
+   * present policy permits only its listed hosts, so an empty list denies all
+   * network. A provider that cannot enforce it refuses the policy.
+   */
+  network?: SandboxNetworkPolicy
 }
 
 /**
@@ -121,6 +150,18 @@ export interface ConfinedArgv {
    * command never ran, while denial means confinement worked and blocked it.
    */
   runnerFailureRules: readonly RunnerFailureRule[]
+  /**
+   * Variables the consumer overlays on the child's environment, such as the
+   * network proxy settings a policy's {@link SandboxExecutionPolicy.network} needs.
+   * Empty when the backend needs none.
+   */
+  env: Readonly<Record<string, string>>
+  /**
+   * Release per-call backend state, such as a registered host list or mount
+   * points. The consumer awaits it once after the child exits, after a spawn
+   * failure, or when it abandons the spawn; it never rejects.
+   */
+  release: () => Promise<void>
 }
 
 /**

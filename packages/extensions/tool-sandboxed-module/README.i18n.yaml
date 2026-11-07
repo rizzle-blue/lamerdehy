@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/extensions/tool-sandboxed-module/README.md
+/:
+  en: a5f9b3daf325690d
+  zh: 3ced9883d1f1111b
+/deepseek-ai-dsh-tool-sandboxed-module:
+  en: 50d4ca270cacff99
+  zh: 1d94d39cdfdc3928
+/deepseek-ai-dsh-tool-sandboxed-module/summary:
+  en: 9cbf1d96eafc7300
+  zh: 8cecdca21ae41b5d
+/deepseek-ai-dsh-tool-sandboxed-module/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 3a2f21ff0dc3420d
+/deepseek-ai-dsh-tool-sandboxed-module/use-this-package:
+  en: 43f535e8b29d6c5f
+  zh: a31b3fccf90d6a32
+/deepseek-ai-dsh-tool-sandboxed-module/use-this-package/configuration:
+  en: db52986178cec807
+  zh: 5355ce905435f871
+/deepseek-ai-dsh-tool-sandboxed-module/understand-the-implementation:
+  en: 814ff7ed27743d67
+  zh: 182296ff2771e727
+/deepseek-ai-dsh-tool-sandboxed-module/further-exploration:
+  en: ebdf6f514d591163
+  zh: 3b1596347c999cb3
+/deepseek-ai-dsh-tool-sandboxed-module/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-tool-sandboxed-module/model-experience/sandboxed-module-tools:
+  en: f27fdb2588cd7255
+  zh: 2a5e9f4bf2f785b3
+/deepseek-ai-dsh-tool-sandboxed-module/model-experience/sandboxed-module-tools/what-the-model-sees:
+  en: 11df663c65bd1818
+  zh: f53eb5deff6137b2
+/deepseek-ai-dsh-tool-sandboxed-module/model-experience/sandboxed-module-tools/token-effect:
+  en: 4a8077cceaf4db66
+  zh: e9898168f17c3ae5
+/deepseek-ai-dsh-tool-sandboxed-module/model-experience/sandboxed-module-tools/kv-cache-effect:
+  en: 3ddcb561bf435acd
+  zh: a3cf6bf61a229443
+/deepseek-ai-dsh-tool-sandboxed-module/known-limitations-and-deferred-work:
+  en: 5bf9cea4d073829e
+  zh: 332408a85912db39
+/deepseek-ai-dsh-tool-sandboxed-module/known-limitations-and-deferred-work/dev-note:
+  en: 0a1253c6f7b5e8b9
+  zh: 9f56528562c7c914

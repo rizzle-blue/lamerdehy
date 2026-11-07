@@ -209,7 +209,7 @@ it('composes current files from profile data and retains launch overlay and tele
   const context = {
     name: 'test', dir, patchPath, installAnchor, home, cwd: home,
     startedBundles: ['base'],
-    overlays: [{ id: 'session-telemetry-otel', disabled: false }], telemetryDisabledEnv: 'false',
+    overlays: [{ id: 'session-telemetry-otel', disabled: false }], sourceCheckout: false, telemetryDisabledEnv: 'false',
   }
   expect(composeEntries([readProfilePatches('test', context)])[0]?.disabled).toBe(true)
   const enabled = { ...context, telemetryDisabledEnv: undefined }

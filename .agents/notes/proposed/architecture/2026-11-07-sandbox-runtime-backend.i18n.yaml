@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for 2026-11-07-sandbox-runtime-backend.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-11-07-sandbox-runtime-backend.md
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend:
+  en: 9175af955bdbc352
+  zh: c515842bf49321f1
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/problem:
+  en: ce408b9926a98109
+  zh: 76e3f590b76735bc
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/proposal:
+  en: 001c4ec7ed96ffe3
+  zh: 39db4493c1c5ebb8
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/proposal/spike-findings:
+  en: dc75ce8cbdb824d6
+  zh: d73450035a7238b6
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/alternatives-considered:
+  en: e6567e5005c0e9d0
+  zh: c4aef40927510bfe
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/acceptance-criteria:
+  en: 6b3f51b62aa96aa0
+  zh: dc313ec42a55c3c6
+/agent-note-adopt-sandbox-runtime-as-the-dsh-sandbox-backend/risks:
+  en: 6b1fc46208817cae
+  zh: ed1c6e77397b0416
