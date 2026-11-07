@@ -94,7 +94,7 @@ kill_tree() {
 smoke_checkout() {
   local checkout="$1" smoke_home="$2" log url pid code waited=0
   mkdir -p "$smoke_home"
-  log="$(mktemp -t dsh-smoke)"
+  log="$(mktemp -t dsh-smoke.XXXXXX)"
   (cd "$checkout" && exec env DSH_HOME="$smoke_home" pnpm --silent dsh --profile web \
     --patch "$home/credentials.overlay.yml" --no-open --port 0) >"$log" 2>&1 &
   pid=$!
