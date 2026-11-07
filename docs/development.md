@@ -200,6 +200,8 @@ pnpm run dev:desktop     # build, then launch Desktop
 
 Arguments after a Web command reach `dsh web`, for example `pnpm run dev:web --no-open --port 3081`; `dev:web` also accepts `--skip-build` to reuse the existing artifact tree and `--no-serve` to run only the rebuild watchers beside a server started elsewhere. Both Web commands use the normal Harness home, while the Desktop commands use the isolated development home described in the [Desktop README](../apps/desktop/README.md). The root `Makefile` names the same commands as `make web`, `make dev-web`, `make desktop`, `make dev-desktop`, and `make build`; `ARGS='--no-open'` forwards options.
 
+The source launcher still imports dynamically loaded plugins, including preset children, from their package `lib/` entries. After changing package sources or switching revisions, rebuild artifacts before restarting the Host; typecheck alone does not refresh those modules. If Session creation reports `agent-preset/invalid` with a row that “never started”, inspect the Host log for the import error before changing the preset configuration.
+
 ### TODO markers
 
 Use one of three comment tags to flag known issues in the code, ordered by urgency:
