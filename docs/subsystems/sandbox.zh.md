@@ -198,7 +198,7 @@ interface ConfinedArgv {
 
 `await ctx.sandbox.confine(argv, policy, signal)` 在执行环境中解析策略路径并返回 `ConfinedArgv`，没有可用后端时以 `SandboxUnavailableError`（错误码 `SANDBOX_UNAVAILABLE`）拒绝。可选信号可在启动前取消解析。消费方也可以在 spawn 或观察所返回的 argv 时对失败进行分类；该归因属于消费方约定。对于受限策略，静默的无隔离透传永远不合法。
 
-请求 `denyRead`、`denyWrite` 或 `network` 的策略，会与所选后端实际能强制执行的内容比对。无法强制执行所请求字段的后端以 `SandboxUnsupportedPolicyError`（错误码 `SANDBOX_UNSUPPORTED_POLICY`）拒绝，并列出所有不受支持的字段；它从不静默丢弃字段。[本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)的各个 rung 与 SSH 提供方目前都不强制执行这三者，因此这类策略在那里会被拒绝，直到选中能够强制执行的后端。
+请求 `denyRead`、`denyWrite` 或 `network` 的策略，会与所选后端实际能强制执行的内容比对。无法强制执行所请求字段的后端以 `SandboxUnsupportedPolicyError`（错误码 `SANDBOX_UNSUPPORTED_POLICY`）拒绝，并列出所有不受支持的字段；它从不静默丢弃字段。在 Linux 与 macOS 上，[本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)通过其 `srt` 档强制执行这三者，只要请求了任一限制就必须携带 `network`。其 bwrap、Landlock、Seatbelt 与 Windows ACL 档以及 SSH 提供方都不强制执行这三者，因此这类策略在那里会被拒绝。
 
 提供方选择、探测、缓存和后端特定的强制执行报告归[本地提供方](../../packages/sandbox/sandbox-local/README.zh.md)所有。
 

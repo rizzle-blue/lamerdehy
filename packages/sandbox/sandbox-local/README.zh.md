@@ -52,6 +52,15 @@ kind: "package-reference"
 
 挂载提供方后，命令在你逐调用解析的模式下运行。强制执行是报告的事实，而非承诺：`full` 表示后端管辖模式承诺的每个文件操作，`partial` 表示它只管辖子集——Windows ACL 档（硬链接、读取不受限与 AppContainer ACL 边界）与较旧的 Landlock ABI 是当前的部分强制执行情形，因此需要绝对边界的消费方可以拒绝或向上暴露它们。被拒绝的文件操作通过后端的拒绝方言呈现，执行命令前失败的 runner 会报告结构化的 runner 失败签名。
 
+<a id="srt-restrictions"></a>
+### Linux 与 macOS 上的读取拒绝、受保护写入与网络
+
+携带 `denyRead`、`denyWrite` 或 `network` 的策略经由 `srt` 档运行，该档基于 [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropic-experimental/sandbox-runtime)（精确锁定版本，beta）。`srt` 档只处理这类策略；其他策略仍走 bwrap、Landlock 与 Seatbelt 链。策略必须携带 `network`：srt 让每次受限调用都经过其过滤代理，因此空的 `allowedDomains` 表示拒绝全部网络；请求读取或写入拒绝却没有 `network` 的策略会以 `SANDBOX_UNSUPPORTED_POLICY` 被拒绝。
+
+每次调用拥有自己的主机列表，以随机 128 位命令 id 注册，并由该调用的 `release()` 移除。该 id 用于把代理请求归属到某次调用，不是并发调用之间的边界。该档在 `env` 中返回 `NODE_USE_ENV_PROXY=1`，使 Node 子进程使用被包装命令设置的代理变量。位于读取拒绝路径之下的可写根目录仍可读取，因此即使 DSH home 被拒绝，工作区也保持可用。srt 为不存在的拒绝路径创建的主机挂载点，会在最后一个进行中的调用释放后移除。
+
+Linux 上 srt 需要 bubblewrap、`socat` 与 `ripgrep`。缺少依赖时，调用以 `SANDBOX_UNSUPPORTED_POLICY` 被拒绝并指明缺失项，不会以更弱的隔离运行。Windows 需要 srt-win 主体安装，不由该档处理。
+
 ### 失败与恢复
 
 不受支持的平台或不可用的 runner 会拒绝执行：`confine()` 以 `SANDBOX_UNAVAILABLE` 拒绝 并列出该平台的 runner 选项，消费方会呈现该错误，而不是让命令不受限制地运行。启动后拒绝自身 profile 的 runner 由其致命 stderr 签名与退出码识别，因此损坏的沙箱不会被误认为被拒绝的命令。`runnerCommand` 覆盖是操作方断言：它跳过功能探测，并假定配置的 runner 诚实实现与 bwrap 兼容的 profile。
@@ -70,7 +79,7 @@ Seatbelt、bwrap 和 Landlock 在 `workspace-write` 下包含策略显式指定�
 
 ### runner 选择
 
-选择按平台优先、探测其次：每个平台都有 runner 链（`linux`：`bwrap` 再 Landlock；`darwin`：Seatbelt；`win32`：ACL 受限令牌 runner）。唯一候选直接选择、不探测；竞争候选按链序各执行一次功能探测，首个可用结论在提供方生命周期内缓存。没有链的平台、或链上所有探测都失败时，平台不可用，`confine()` 会拒绝执行。
+在 Linux 与 macOS 上，带读取拒绝、受保护写入或网络列表的策略绕过此链，使用 `srt` 档（见[Linux 与 macOS 上的读取拒绝、受保护写入与网络](#srt-restrictions)）。其他策略的选择如下。选择按平台优先、探测其次：每个平台都有 runner 链（`linux`：`bwrap` 再 Landlock；`darwin`：Seatbelt；`win32`：ACL 受限令牌 runner）。唯一候选直接选择、不探测；竞争候选按链序各执行一次功能探测，首个可用结论在提供方生命周期内缓存。没有链的平台、或链上所有探测都失败时，平台不可用，`confine()` 会拒绝执行。
 
 ### 平台 profile
 
@@ -95,6 +104,7 @@ Windows 档为每个工作区保留一个确定性写入 SID 和常驻 ACE，同
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：runner 链选择、功能探测、逐调用包装、ACL 授权生命周期 |
+| [`src/srt.ts`](src/srt.ts) | `srt` 档：进程全局 `SandboxManager` 的归属、逐调用包装、主机列表注册、释放引用计数 |
 | [`src/profiles.ts`](src/profiles.ts) | 各平台 profile 构建器：bwrap 挂载、Landlock 授权、Seatbelt SBPL |
 
 </details>
@@ -134,6 +144,9 @@ Windows 档为每个工作区保留一个确定性写入 SID 和常驻 ACE，同
 - **Windows ACL 只能实现部分强制执行**——NTFS 硬链接会使工作区路径与外部路径指向同一个文件对象，读取仍不受限，且被其他 AppContainer 工具以包 SID 标记过的目录树对 Low 完整性子进程不可读。提供方报告 `enforcement: 'partial'`，而不会把该边界夸大为完整强制执行。
 - **Landlock 可能只实现部分强制执行**——较旧且受支持的内核 ABI 只能限制自身公开的访问类别，因此报告 `enforcement: 'partial'`，不会夸大为完整强制执行。
 - **Seatbelt 依赖已弃用的 `sandbox-exec`**——macOS 仍会提供它，但若 Apple 移除该私有策略引擎，该提供方无法替换或探测。
+- **srt 是 beta 依赖**——`@anthropic-ai/sandbox-runtime` 的配置语义在版本之间会变化，因此精确锁定版本并有意升级。其 `SandboxManager` 是进程全局的：同一进程中的第二个 `sandbox-local` 提供方会以 `SANDBOX_UNSUPPORTED_POLICY` 被拒绝。
+- **Linux 上 srt 的代价**——SIGKILL 之后主机上可能残留挂载点，bwrap 拒绝过长的挂载列表，嵌套用户命名空间被阻止，会破坏嵌套 bwrap 与 Chromium 沙箱。这些只适用于请求了限制的策略。
+- **macOS 上的 srt 未在本地测试**——该档的 Seatbelt 方言只在 macOS 的 CI 中运行。
 - **runner 选择在提供方生命周期内缓存**——安装、移除或修复 runner 后，必须重载插件才能改变选择。
 - **`runnerCommand` 是操作方断言**——配置的自定义 runner 会跳过功能探测，并假定它诚实实现与 bwrap 兼容的 profile；如果它本身是 Bash 脚本，其解释器启动发生在该脚本施加约束之前。
 

@@ -36,12 +36,15 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import {
   NO_RESTRICTIONS, SandboxProvider, SandboxUnavailableError, SandboxUnsupportedPolicyError, assertRestrictionsSupported, canonicalPath,
+  requestedRestrictions,
 } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, ConfinedSandboxMode, RunnerFailureRule, SandboxEnforcement, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { AclWriteGrant, assertTempRootOutsideWorkspace, registerAclDiagnosisSkill, tempWriteSid, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
+import { SrtRung, isSrtPlatform } from './srt.ts'
+import type { SrtManager } from './srt.ts'
 
 /** Legacy rungs keep no per-call state. */
 const NO_RELEASE = (): Promise<void> => Promise.resolve()
@@ -141,6 +144,8 @@ export interface SandboxInternals {
   probeWindowsAcl?: () => boolean
   /** Replaces the private-temp-directory removal at provider dispose (a throwing fake exercises the cleanup-failure path). */
   rmTempDir?: (path: string) => void
+  /** Replaces the srt runtime manager (a fake that records wraps and registrations). */
+  srtManager?: () => Promise<SrtManager>
 }
 
 /** The chain's verdict: which runner confines, and how completely it enforces. */
@@ -266,6 +271,8 @@ export class LocalSandboxProvider extends SandboxProvider {
   internals: SandboxInternals = {}
 
   private readonly runnerCommand: string[] | undefined
+  /** Confines read-deny, write-deny and network policies on Linux and macOS; created on first use so test hooks apply. */
+  private srtRung: SrtRung | undefined
   private readonly configuredRunnerFailureSignatures: string[]
   private readonly probeTimeoutMs: number
   /** Cached chain verdict; undefined until the first confined wrap needs it. */
@@ -313,6 +320,7 @@ export class LocalSandboxProvider extends SandboxProvider {
     ctx.effect(() => () => {
       this.revokeAclGrants()
     })
+    ctx.effect(() => async () => { await this.srtRung?.dispose() })
   }
 
   /**
@@ -327,7 +335,8 @@ export class LocalSandboxProvider extends SandboxProvider {
    *   signatures, and structured runner-failure rules; throws the fail-closed
    *   `SANDBOX_UNAVAILABLE` error when the platform has no usable runner, and
    *   `SANDBOX_UNSUPPORTED_POLICY` for read-deny, write-deny, or network
-   *   restrictions, which no current rung enforces.
+   *   restrictions that the `srt` rung (Linux and macOS) cannot enforce, or
+   *   on any other platform or an operator `runnerCommand`.
    */
   async confine(argv: readonly string[], policy: SandboxPolicy, signal?: AbortSignal): Promise<ConfinedArgv> {
     signal?.throwIfAborted()
@@ -342,6 +351,15 @@ export class LocalSandboxProvider extends SandboxProvider {
         env: {},
         release: NO_RELEASE,
       })
+    }
+    const requested = requestedRestrictions(policy)
+    if (requested.denyRead || requested.denyWrite || requested.network) {
+      const platform = this.internals.platform ?? process.platform
+      if (isSrtPlatform(platform)) {
+        this.srtRung ??= new SrtRung(platform, this.internals.srtManager)
+        return this.srtRung.confine(argv, policy, signal)
+      }
+      assertRestrictionsSupported(policy, NO_RESTRICTIONS, platform)
     }
     const selected = this.selectRunner(policy.mode)
     assertRestrictionsSupported(policy, NO_RESTRICTIONS, selected.runner)

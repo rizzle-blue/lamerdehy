@@ -35,6 +35,7 @@
     "@deepseek-ai/dsh-session": "workspace:*"
   },
   "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.81",
     "@deepseek-ai/dsh-sandbox-windows-acl": "workspace:*",
     "@deepseek-ai/dsh-util-values": "workspace:*",
     "@deepseek-ai/node-addon-system": "workspace:~",

@@ -52,6 +52,15 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 With the provider mounted, a command runs under the mode you resolve per call. Enforcement is a reported fact, not a promise: `full` means the backend governs every promised file effect, while `partial` means it governs only a subset — the Windows ACL rung (hard-link, unconfined-read, and AppContainer-ACL boundaries) and older Landlock ABIs are the current partial cases, so a consumer that requires an absolute boundary can reject or surface them. Denied file effects surface through the backend's denial dialect, and a runner that fails before executing the command reports a structured runner-failure signature.
 
+<a id="srt-restrictions"></a>
+### Read denies, protected writes, and network on Linux and macOS
+
+A policy that carries `denyRead`, `denyWrite`, or `network` runs through the `srt` rung, built on [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropic-experimental/sandbox-runtime) (pinned exactly, beta). The rung applies only to those policies; every other policy keeps the bwrap, Landlock, and Seatbelt chain. The policy MUST carry `network`: srt sends every confined call through its filtering proxy, so an empty `allowedDomains` list denies all network, and a policy that requests read or write denies without `network` is refused with `SANDBOX_UNSUPPORTED_POLICY`.
+
+Each call receives its own host list, registered under a random 128-bit command id and removed by the call's `release()`. The id attributes proxy requests to a call; it is not a boundary between concurrent calls. The rung returns `NODE_USE_ENV_PROXY=1` in `env` so Node children use the proxy variables the wrapped command sets. Writable roots beneath a read-denied path stay readable, so the workspace remains usable when the DSH home is denied. Host mount points that srt creates for absent deny paths are removed after the last in-flight call is released.
+
+srt needs bubblewrap, `socat`, and `ripgrep` on Linux. When a dependency is missing, the call is refused with `SANDBOX_UNSUPPORTED_POLICY` naming it; no weaker confinement runs. Windows needs the srt-win principal install and is not served by this rung.
+
 ### Failures and recovery
 
 An unsupported platform or an unusable runner fails closed: `confine()` rejects with `SANDBOX_UNAVAILABLE` and names the runner options for the platform, and the consumer surfaces that error rather than running the command unconfined. A runner that starts but refuses its profile is identified by its fatal stderr signature and exit code, so a broken sandbox is not mistaken for a denied command. The `runnerCommand` override is an operator assertion: it skips functional probes and assumes the configured runner implements the bwrap-compatible profile honestly.
@@ -70,7 +79,7 @@ This section explains runner selection, the per-platform profiles, and the failu
 
 ### Runner selection
 
-Selection is by platform first, probes second: each platform has a runner chain (`linux`: `bwrap` then Landlock; `darwin`: Seatbelt; `win32`: the ACL restricted-token runner). A sole candidate is selected without a probe; competing candidates are functionally probed once in chain order, and the first usable verdict is cached for the provider's lifetime. A platform with no chain, or a chain where every probe fails, is unavailable and fails closed at `confine()`.
+Policies with read denies, protected writes, or a network list bypass this chain on Linux and macOS and use the `srt` rung (see [Read denies, protected writes, and network](#srt-restrictions)). All other policies select as follows. Selection is by platform first, probes second: each platform has a runner chain (`linux`: `bwrap` then Landlock; `darwin`: Seatbelt; `win32`: the ACL restricted-token runner). A sole candidate is selected without a probe; competing candidates are functionally probed once in chain order, and the first usable verdict is cached for the provider's lifetime. A platform with no chain, or a chain where every probe fails, is unavailable and fails closed at `confine()`.
 
 ### Platform profiles
 
@@ -95,6 +104,7 @@ Each runner's kernel speaks its own denial dialect, carried on every wrap as `de
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: runner chain selection, functional probes, per-call wrap, ACL grant lifecycle |
+| [`src/srt.ts`](src/srt.ts) | The `srt` rung: process-global `SandboxManager` ownership, per-call wrap, host-list registration, release reference count |
 | [`src/profiles.ts`](src/profiles.ts) | Per-platform profile builders: bwrap mounts, Landlock grants, Seatbelt SBPL |
 
 </details>
@@ -134,6 +144,9 @@ These limits define when the provider is a poor fit or needs special operational
 - **Windows ACL enforcement is partial** — NTFS hard links alias one file object across workspace and external paths, reads stay unconfined, and a tree another AppContainer tool has ACL'd with a package SID is unreadable to the Low-integrity child. The provider reports `enforcement: 'partial'` rather than overstating that boundary as full.
 - **Landlock may be partial** — older supported kernel ABIs confine only the access classes they expose, reported as `enforcement: 'partial'` rather than overstated as full.
 - **Seatbelt depends on deprecated `sandbox-exec`** — macOS still ships it, but this provider cannot replace or probe that private policy engine if Apple removes it.
+- **srt is a beta dependency** — `@anthropic-ai/sandbox-runtime` changes configuration semantics between releases, so the version is pinned exactly and upgraded deliberately. Its `SandboxManager` is process-global: a second `sandbox-local` provider in one process is refused with `SANDBOX_UNSUPPORTED_POLICY`.
+- **srt costs on Linux** — mount points can remain on the host after a SIGKILL, bwrap rejects very long mount lists, and nested user namespaces are blocked, which breaks nested bwrap and Chromium sandboxes. These apply only to policies that request restrictions.
+- **macOS srt is untested locally** — the Seatbelt dialect of the rung runs only under CI on macOS.
 - **Runner selection is cached for the provider lifetime** — installing, removing, or repairing a runner requires reloading the plugin before selection changes.
 - **`runnerCommand` is an operator assertion** — a configured custom runner skips functional probes and is assumed to implement the bwrap-compatible profile honestly; if it is itself a Bash script, its interpreter startup runs before that script applies confinement.
 
