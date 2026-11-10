@@ -1,0 +1,98 @@
+[
+  {
+    "type": "block-start",
+    "index": 0,
+    "blockType": "reasoning"
+  },
+  {
+    "type": "reasoning-delta",
+    "index": 0,
+    "text": "The user wants "
+  },
+  {
+    "type": "reasoning-delta",
+    "index": 0,
+    "text": "the file read."
+  },
+  {
+    "type": "block-end",
+    "index": 0,
+    "block": {
+      "type": "reasoning",
+      "text": "The user wants the file read."
+    }
+  },
+  {
+    "type": "block-start",
+    "index": 1,
+    "blockType": "text"
+  },
+  {
+    "type": "text-delta",
+    "index": 1,
+    "text": "I'll read "
+  },
+  {
+    "type": "text-delta",
+    "index": 1,
+    "text": "the file."
+  },
+  {
+    "type": "block-end",
+    "index": 1,
+    "block": {
+      "type": "text",
+      "text": "I'll read the file."
+    }
+  },
+  {
+    "type": "block-start",
+    "index": 2,
+    "blockType": "tool-call"
+  },
+  {
+    "type": "tool-call-delta",
+    "index": 2,
+    "id": "tooluse_8xQmZkLw3PqNvRt5Yb2HcA",
+    "name": "read",
+    "argumentsDelta": ""
+  },
+  {
+    "type": "tool-call-delta",
+    "index": 2,
+    "id": "tooluse_8xQmZkLw3PqNvRt5Yb2HcA",
+    "argumentsDelta": "{\"pa"
+  },
+  {
+    "type": "tool-call-delta",
+    "index": 2,
+    "id": "tooluse_8xQmZkLw3PqNvRt5Yb2HcA",
+    "argumentsDelta": "th\":\"notes.txt\"}"
+  },
+  {
+    "type": "block-end",
+    "index": 2,
+    "block": {
+      "type": "tool-call",
+      "id": "tooluse_8xQmZkLw3PqNvRt5Yb2HcA",
+      "name": "read",
+      "arguments": "{\"path\":\"notes.txt\"}"
+    }
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "inputTokens": 1292,
+      "outputTokens": 57,
+      "totalTokens": 1349,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0
+    }
+  },
+  {
+    "type": "finish",
+    "reason": {
+      "kind": "tool-calls"
+    }
+  }
+]

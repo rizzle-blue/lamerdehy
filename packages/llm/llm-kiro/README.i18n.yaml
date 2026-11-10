@@ -1,0 +1,58 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/llm/llm-kiro/README.md
+/:
+  en: 0de9745ff5cca02b
+  zh: 3298e22b8e466e10
+/deepseek-ai-dsh-llm-kiro:
+  en: f9fa6ba6ad3f2edb
+  zh: a3ade7497dabe756
+/deepseek-ai-dsh-llm-kiro/summary:
+  en: e7e23caf20d801b4
+  zh: 206bccbeca55fb02
+/deepseek-ai-dsh-llm-kiro/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 0a57e495c2d0fdc4
+/deepseek-ai-dsh-llm-kiro/use-this-package:
+  en: 2db6983027ffc31a
+  zh: 53061d2e9e7987e8
+/deepseek-ai-dsh-llm-kiro/use-this-package/sign-in-and-select-a-model:
+  en: d8e795c848439577
+  zh: 580d660cab8dc2ae
+/deepseek-ai-dsh-llm-kiro/use-this-package/custom-compositions:
+  en: f1d721b1f3a1dbd6
+  zh: 1ef237877f3b2f1b
+/deepseek-ai-dsh-llm-kiro/use-this-package/deployment-settings:
+  en: b556e84530c5fd96
+  zh: 9c082d19b9819334
+/deepseek-ai-dsh-llm-kiro/understand-the-implementation:
+  en: cb248a1ee37cf630
+  zh: 7e36c6a8be9f83c2
+/deepseek-ai-dsh-llm-kiro/further-exploration:
+  en: f30321182b7c9dca
+  zh: 0cee84da4ef060a0
+/deepseek-ai-dsh-llm-kiro/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llm-kiro/model-experience/kiro-conversation-requests:
+  en: 8df045f45a827337
+  zh: 00e2d19e1b6266e3
+/deepseek-ai-dsh-llm-kiro/model-experience/kiro-conversation-requests/what-the-model-sees:
+  en: 2c6d049a422756fb
+  zh: b302906c37e7039e
+/deepseek-ai-dsh-llm-kiro/model-experience/kiro-conversation-requests/what-the-model-sees/normalization-text:
+  en: 20fb968d249a7455
+  zh: ce50c6d60fff9205
+/deepseek-ai-dsh-llm-kiro/model-experience/kiro-conversation-requests/token-effect:
+  en: 96b8508025dbc7ca
+  zh: caea8317448ed5a6
+/deepseek-ai-dsh-llm-kiro/model-experience/kiro-conversation-requests/kv-cache-effect:
+  en: 59c98f1886ece3e0
+  zh: f083e8b0eafd12d9
+/deepseek-ai-dsh-llm-kiro/known-limitations-and-deferred-work:
+  en: ec86429e5c8ce2b4
+  zh: 051a91591ead22b6
+/deepseek-ai-dsh-llm-kiro/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: e88aeb617ffb74ea

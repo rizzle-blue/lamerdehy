@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/llm/README.md
 /:
-  en: 2c229c1ca0bb752f
-  zh: d238dc305f853b48
+  en: 07162bec5cbaf385
+  zh: 727946a0d2faad7c
 /llm-llm-capability-family:
   en: ba3796ff9be68703
   zh: cc613f0edcbda1ee
@@ -15,8 +15,8 @@
   en: 1eb35b015a6c423f
   zh: a8a3dceee2c9e943
 /llm-llm-capability-family/packages:
-  en: 4a2398259a40a3f2
-  zh: 47eaba38b7a1843c
+  en: 4068b9a41edd8718
+  zh: 16cee1fff8d938fe
 /llm-llm-capability-family/related-documentation:
   en: a04b4267c869ee89
   zh: 618563325df0a372

@@ -33,11 +33,51 @@ This plan replaces both with one current-state plan. Scope is **macOS and Window
 - **Auto mode** (D6/D7) and the review gate (D8) stay in scope as the last phase. They are platform-neutral.
 - **Windows verification** runs on the user's Windows machine (`E:/Projects/lamerdehy`, Git Bash). macOS verification runs locally (macOS 27), so macOS no longer depends on CI alone.
 
+## Status and review (2026-11-10)
+
+**Progress.** Only this plan is committed (`80562065bf`). Phase 0 has not started: there is no `tidebloom-sandbox-deno` worktree, the v1 and v2 plan files are still in the root, and both srt notes still name `TIDEBLOOM_SANDBOX_V2_PLAN.md`. The landed unit tests pass (`tool-sandboxed-module`, `tool-self-extend`, `sandbox`, `sandbox-local`: 344 passed, 71 skipped). The main checkout has unrelated uncommitted Kiro work, so `--with-local` would put that work into this worktree's baseline. Create the worktree without `--with-local`.
+
+**Review of the landed code.** The seam and the srt rung match the plan. These facts affect the remaining phases:
+
+- **R1. `srt.e2e.ts` skips on macOS.** It sets `supported = process.platform === 'linux'`. Spike step 0.4 has to widen it to `darwin` (the macOS dependency is ripgrep, which is installed here) before "run it locally" proves anything.
+- **R2. Windows refuses `write: workspace` today.** `write: workspace` adds `dataDir` as an `additionalWritableRoots` entry, and `windowsAclRunnerArgv` throws `SANDBOX_UNSUPPORTED_POLICY` for any extra root (`sandbox-local/src/index.ts:401`). `osEnforced` does not change this, so the Windows `.git/hooks` expectation in Verification 3 cannot pass as written. **Decision needed:** (a) refuse `write: workspace` on Windows at `self_extend` add/update and in `placement()`, with a message naming the limit (recommended for phase 1), or (b) add extra-root support to the windows-acl rung (a separate change with its own ACL grant lifecycle).
+- **R3. The snapshot composition loses `self_extend`.** The replay composition (`snapshots/session/tidebloom-self-extend/cordis.yml`) relies on the headless `ptcRuntime`. After 1c, `self_extend` injects `sandboxedModules`, which the composition does not provide, so the tool would not mount. 1d must add a runner row there. The snapshot calls only `list`, so the passthrough `runnerCommand`, which refuses restriction fields, is never asked to confine.
+
+**Corrections to the Deno design** (spike 0.4 must confirm each one):
+
+- **D1. Deno deny beats allow, whatever the nesting.** `--deny-read` overrides `--allow-read` even for a more specific allow ([Deno security docs](https://docs.deno.com/runtime/fundamentals/security/)). `dataDir` is `<profile>/self-extensions/<preset>/data/<id>`, inside the DSH home that `credentialReadDenyPaths` denies. Passing `policy.denyRead` straight through would therefore block the module's own data. Deno is allowlist-first, so the runner's Deno argv must:
+  - drop each deny entry that is an ancestor of, or equal to, an allowed root (it is unreadable already, apart from the allowed subtree);
+  - keep only the deny entries that lie inside an allowed root;
+  - apply the same rule to `denyWrite`, whose `protectedWritePaths` entries already lie inside the writable roots.
+
+  The OS policy keeps srt's `allowRead` re-allow semantics unchanged.
+- **D2. Static imports skip read checks.** Deno loads the initial static module graph without consulting `--allow-read`, and that graph includes `import()` calls with a literal specifier. If the host entry imports the `data:` URL with a literal, the module's own static imports, such as `import c from 'file:///…/.docker/config.json' with { type: 'json' }`, would read credential files with no read check. On Windows, Deno is the only read layer. Fixes:
+  - the entry imports through a non-literal specifier (`const url = …; await import(url)`);
+  - the spike adds a JSON-import probe of a denied path, and also a text/bytes raw import if the pinned release supports raw imports;
+  - drop "entry dir" from `--allow-read`; the entry loads as the main module and needs no read grant.
+- **D3. Strip the whole environment.** "Empty environment" must be explicit. `ctx.subprocess.spawn` starts from the ambient environment minus credential-shaped names, so the runner must unset every ambient key, as the PTC worker does (`ptc-runtime-node/src/worker.ts:291`). Deno itself reads `DENO_PERMISSION_BROKER_PATH`, which makes it ignore every `--allow`/`--deny` flag. It also reads `DENO_V8_FLAGS`, `DENO_AUTH_TOKENS`, `DENO_TLS_CA_STORE`, `NPM_CONFIG_REGISTRY` and others. The child receives only `DENO_DIR`, `DENO_NO_UPDATE_CHECK=1` and `ConfinedArgv.env`. Add a test that an ambient `DENO_PERMISSION_BROKER_PATH` does not reach the child.
+- **D4. Deno's cache writes can look like OS denials.** Under srt (writes allowed only in the roots) and under the Low-IL token, Deno's own writes to `DENO_DIR` (code cache, node analysis cache) can fail. On macOS that stderr contains "Operation not permitted", which is the srt denial signature, so every call would be classified as an OS denial. Fixes:
+  - point `DENO_DIR` at a per-call directory inside the call's private temp directory;
+  - make that directory writable at the OS layer: add it to the OS policy's `additionalWritableRoots` on srt, and on Windows use the runner's private TEMP;
+  - also pass `--no-code-cache` if the pinned release accepts it;
+  - the spike checks that stderr stays empty for a plain call in every mode, including `read-only`.
+- **D5. Nonce framing does not stop tampering inside the process.** The module shares the entry's realm and can patch `Deno.stdout.write`, `JSON.stringify` or `TextEncoder` before the entry writes its frame. The entry must capture bound originals before it imports the module, and the nonce must not appear in `Deno.args` or in any file the module can read. The frame guards against stray prints. The result is still untrusted module data, and the runner never trusts a frame's `denied` field: it classifies runtime denials from the serialized error name `NotCapable`, and OS denials only from stderr signatures when no valid frame arrived.
+- **D6. Symlinks and hard links on Windows.** Without an OS read layer, a link inside the workspace that points to a credential store is the remaining read path. The spike checks what Deno does with a pre-existing symlink and a hard link inside an allowed root that point to a denied path. If Deno follows them, record it in the note and the README limitations.
+- **D7. Binary resolution.** pnpm's strict layout does not let the runner resolve `@deno/<platform>-<arch>` through the `deno` wrapper. The runner declares the six `@deno/*` packages as exact `optionalDependencies` itself and does not depend on `deno`, so no postinstall exists and no `allowBuilds` entry is needed. 2.9.6 (published 2026-08-27, `@deno/darwin-arm64` about 81 MB unpacked) is past the release-age window, so no `minimumReleaseAgeExclude` entry is needed for it.
+- **D8. Keep the binary out of `python/sdk-runtime` from the start.** Tidebloom is disabled outside source checkouts (`tidebloom.patch.yml:8`), so the exe gains nothing from an 80 MB binary. Add the runner to `apps/cli` and `packages/bundle/web-app` only. If `verify-default-product-isolation` requires the mirror, record the exemption.
+
+**Other corrections:**
+
+- **E1. The guardrail e2e must not touch the real repository.** The `.git/hooks` probe runs in a fresh temporary workspace under `homedir()` with its own `git init`. If it used the session default workspace (this checkout) and the deny failed, the test would install a hook in the developer's repository.
+- **E2. The credential probe.** `homedir()` is the real home; `bootWeb` redirects only the DSH home. Use the DSH-home probe (`.credentials.yaml`) as the required assertion. Add the `~/.ssh` probe only through a test-local home that the plugin receives explicitly (a `Config` field or the profile context), never by changing `process.env.HOME` inside the shared worker.
+- **E3. `*.host` in Deno.** `--allow-net` may not accept `*.host` wildcards. If the spike shows it does not, phase 2's manifest syntax drops `*.host`. The two layers never use different host lists.
+- **E4. Upgrade-guide directory.** Phase 3 uses the root `package.json` version current when it lands (`v0.2.2-rc.1` today), not a fixed path.
+
 ## Phase 0: housekeeping and spike
 
 1. **Worktree.** Per `.agents/skills/dsh-worktree-dev/SKILL.md`, from the main checkout:
    ```sh
-   scripts/worktree-dev.sh new tidebloom-sandbox-deno --with-local --story "Tidebloom module extensions run under Deno permissions inside the OS sandbox on macOS and Windows: credential reads denied, protected paths write-denied, network denied by default."
+   scripts/worktree-dev.sh new tidebloom-sandbox-deno --story "Tidebloom module extensions run under Deno permissions inside the OS sandbox on macOS and Windows: credential reads denied, protected paths write-denied, network denied by default."
    ```
 2. **Replace the plan files.**
    - Write this plan as `TIDEBLOOM_SANDBOX_PLAN.md` at the repo root.
@@ -51,11 +91,16 @@ This plan replaces both with one current-state plan. Scope is **macOS and Window
      - the layering;
      - the spike results.
 4. **Spike** with Deno pinned exactly to the npm `deno` 2.9.x release. Record each result in the note.
-   - **Binary resolution.** Resolve the binary from the `@deno/<platform>-<arch>` optional package, so `deno`'s postinstall can be denied with `allowBuilds: { deno: false }` in `pnpm-workspace.yaml`. If the release-age policy blocks it, add a `minimumReleaseAgeExclude` entry.
-   - **Entry and permissions.** A host-written entry file dynamically imports the module's `data:` URL. Check:
-     - `--no-remote --no-npm --no-config --no-lock --no-prompt` work together;
+   - **Binary resolution.** Per D7: exact `@deno/*` optional dependencies on the runner, with no `deno` wrapper.
+   - **Entry and permissions.** A host-written entry file imports the module's `data:` URL through a non-literal specifier (D2). Check:
+     - `--no-remote --no-npm --no-config --no-lock --no-prompt --cached-only` work together, and `--no-code-cache` if accepted;
      - `NotCapable` message text for reads, writes and net;
-     - a static import inside the module is still checked.
+     - D1: `--allow-read=<dataDir>` plus only the nested denies reads `dataDir` inside a denied DSH home;
+     - D2: a static `import … with { type: 'json' }` of a denied path inside the module is refused;
+     - D4: a plain call writes nothing to stderr in every mode;
+     - D5: a module that patches `Deno.stdout.write` cannot forge the frame;
+     - D6: symlink and hard-link reads of a denied path;
+     - E3: `*.host` in `--allow-net`.
    - **macOS under srt.** Deno runs under the srt rung. Check:
      - Deno honors srt's `HTTP(S)_PROXY`;
      - an allowed host works and an unlisted host is refused at both layers;
@@ -64,7 +109,7 @@ This plan replaces both with one current-state plan. Scope is **macOS and Window
      - HTTPS `fetch` to an allowed host works (rustls);
      - reads and writes outside the grants are denied.
    - Measure startup overhead on both platforms.
-   - Run the existing `packages/sandbox/sandbox-local/tests/srt.e2e.ts` on macOS locally. It has only run in CI so far.
+   - Widen `srt.e2e.ts`'s `supported` to Linux and macOS (R1), then run it locally. It has never run on macOS.
 
 ## Phase 1: Deno module runner, deny lists and network denied by default (macOS and Windows)
 
@@ -95,16 +140,16 @@ run(request: {
 
 **Argv.**
 - Command: `deno run --no-prompt --no-remote --no-npm --no-config --no-lock --cached-only --v8-flags=--max-old-space-size=<maxHeapMb>`.
-- Read: `--allow-read=<entry dir, readRoots…>`.
+- Read: `--allow-read=<readRoots…>`. The entry is the main module and needs no grant (D2).
 - Write: `--allow-write=<writable roots>` (none under `read-only`).
-- Denies: `--deny-read=<policy.denyRead>` and `--deny-write=<policy.denyWrite>`.
+- Denies: `--deny-read` and `--deny-write` with only the policy entries that lie inside an allowed root. Entries that cover an allowed root are dropped from the Deno argv and kept in the OS policy (D1).
 - Network: `--allow-net=<policy.network.allowedDomains>`; omit the flag when the list is empty.
 - No `--allow-env/run/ffi/sys`.
 
 **Process.**
 - The entry file goes in a private temp directory and is removed after the call.
-- The child gets an empty environment plus `DENO_DIR` and `DENO_NO_UPDATE_CHECK=1`. Merge `ConfinedArgv.env`.
-- Output is framed by a per-call nonce line, so a module that writes to stdout cannot fake the result.
+- The child's environment unsets every ambient key and contains only `DENO_DIR` (per-call, inside the private temp directory and OS-writable, D4), `DENO_NO_UPDATE_CHECK=1` and `ConfinedArgv.env` (D3).
+- Output is framed by a per-call nonce line, written through originals the entry captures before importing the module. The frame guards against stray prints only (D5).
 
 **OS layer.**
 - Call `ctx.sandbox.confine(argv, osPolicy)`, then spawn through `ctx.subprocess.spawn` (pattern: `ptc-runtime-node/src/worker.ts:300`).
@@ -160,8 +205,9 @@ File: `packages/extensions/tool-self-extend/src/index.ts:103-117`.
   ```yaml
   osEnforced: !!js "process.platform === 'win32' ? { denyRead: false, denyWrite: false, network: false } : { denyRead: true, denyWrite: true, network: true }"
   ```
-- **Dependencies.** Add the runner where v1 added `tool-sandboxed-module`: `packages/bundle/web-app`, `apps/cli`, `python/sdk-runtime`.
-  - Tidebloom is for source checkouts only. If a packaging or size gate objects to the Deno binary in `python/sdk-runtime`, keep the runner out of that deploy root and record why.
+- **Dependencies.** Add the runner to `packages/bundle/web-app` and `apps/cli` only (D8). Keep it out of `python/sdk-runtime`, and record an exemption if a gate requires that mirror.
+- **Snapshot composition (R3).** Add a `sandboxed-module-runner` row to `snapshots/session/tidebloom-self-extend/cordis.yml` so `self_extend` still mounts during replay.
+- **Windows `write: workspace` (R2).** Apply the option the user chooses.
   - If `hygiene` flags the package, classify it in `scripts/product-package-policy.ts` as optional, reachable only through the Tidebloom preset.
 - **Catalog entry** in `scripts/gen-tool-catalog.ts`: update the `tool-sandboxed-module` entry's `requires` to `ctx.sandboxedModules`, and update its note. Then run `gen-tool-catalog`, `gen-config-catalog`, `gen-plugin-packages`, `gen-cordis-catalog`.
 - **Chinese catalog.** Mirror the changes by hand into `docs/tool-catalog.zh.md`, then run `pnpm run verify-translation-pairing --write docs/tool-catalog.md`.
@@ -175,10 +221,10 @@ Keep the v1 assertions: the data write, the outside write denied with its marker
 Add a guardrails module that tries each blocked action, each one asserted denied, with nothing created on disk:
 - read `join(home-under-test, '.ssh', 'id_test')`;
 - read the profile's `.credentials.yaml`;
-- with `write: workspace`, write `<workspace>/.git/hooks/pre-commit`;
+- with `write: workspace`, write `<workspace>/.git/hooks/pre-commit` in a fresh `git init` workspace under `homedir()`, never the default session workspace (E1);
 - `fetch('https://example.com')`.
 
-The test home's `os.homedir()` is overridden per the existing harness; the credential list follows `homedir()`. If the harness cannot redirect it, assert the DSH-home denial alone.
+The harness redirects only the DSH home, so the `.credentials.yaml` denial is the required assertion. Add the `~/.ssh` probe only through an explicit test home (E2).
 
 ## Phase 2: action review seam, `self_extend` review gate, declared network hosts
 
@@ -221,7 +267,7 @@ Carried over from v2 D6 and D7.
   - The Web UI gains a "Recently blocked" list.
 - **Removals and docs:**
   - Remove `packages/experimental/auto-review`.
-  - Write an upgrade guide at `docs/upgrade-guide/v0.2.2-rc.1/auto-review-graduation/`.
+  - Write an upgrade guide at `docs/upgrade-guide/v<root version when this lands>/auto-review-graduation/` (E4).
   - Add an Agent Note that supersedes `2026-08-28-auto-review.md`.
 - **Evidence:**
   - unit tests for tier precedence, `$defaults`, settings scope and the threshold projection;
@@ -258,7 +304,7 @@ All commands run in the worktree unless stated otherwise.
    - `pnpm run verify-cordis-config`.
 3. **Windows (user's machine, `E:/Projects/lamerdehy`, Git Bash).**
    - Fetch the worktree branch, then run `pnpm install`, `pnpm run build:artifacts`, the runner e2e, and the Tidebloom e2e filter above.
-   - Expect a data write that succeeds, and denials for outside writes, credential reads, `.git/hooks` writes and unlisted hosts.
+   - Expect a data write that succeeds, and denials for outside writes, credential reads and unlisted hosts. The `.git/hooks` case follows the R2 decision: under (a), `write: workspace` is refused with its message; under (b), the write is denied.
 4. **Gates (macOS):** `pnpm run typecheck`, `lint`, `doc-sync`, `hygiene`, and `build:check` after the latest `build:artifacts`. Failures that already exist are not caused by this change: `rescope-vendor:check`, and the `verify-doc-budgets` AGENTS.md word count.
 5. **Worktree lifecycle.**
    - Set `checks` to items 1, 2 and `build:check`.
