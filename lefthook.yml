@@ -45,5 +45,10 @@ pre-merge-commit:
 
 pre-push:
   jobs:
+    # Lam Hy: block pushes that add telemetry, Chinese files, or upstream-name
+    # copy beyond origin/main; see LAMHY.md and the lamhy-sync-upstream skill.
+    - name: lamhy fork drift
+      run: node_modules/.bin/tsx scripts/verify-lamhy-fork.ts --since=origin/main
+
     - name: typecheck
       run: pnpm run typecheck
