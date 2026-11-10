@@ -309,23 +309,38 @@ describe('built-in conversation node Definitions', () => {
     expect(systemMessageDefinition(inspectSystemPrompt).update({ state } as never, invalidStart)).toBe(state)
   })
 
-  it('keeps ordinary command-only history inactive for the Conversation shell', () => {
-    const value = assembler([
-      at(1, 'command/run', {
-        commandId: 'command-1',
-        name: 'help',
-        source: { kind: 'user' },
-      }),
-      at(2, 'command/done', {
-        commandId: 'command-1',
-        kind: 'success',
-      }),
-    ])
-    const current = snapshot(value)
+  it('reveals a command and its result before the first conversation Turn', () => {
+    const value = assembler([])
+    expect(value.activityTargets()).toEqual(new Set())
 
-    expect(current.order).toHaveLength(1)
-    expect(current.nodes.get(current.order[0] ?? '')?.kind).toBe('command')
-    expect(chatViewDefinition.isActive?.(current)).toBe(false)
+    value.append(at(1, 'command/run', {
+      commandId: 'command-1',
+      name: 'kiro-login',
+      source: { kind: 'user' },
+    }))
+    value.flush()
+    expect(value.activityTargets()).toEqual(new Set(['chat']))
+
+    value.append(at(2, 'command/done', {
+      commandId: 'command-1',
+      kind: 'success',
+      text: 'Approve the Kiro sign-in in your browser.',
+    }))
+    value.flush()
+    const current = snapshot(value)
+    expect(current.nodes.get(current.order[0] ?? '')?.data).toMatchObject({
+      kind: 'command',
+      outcome: { kind: 'success', text: 'Approve the Kiro sign-in in your browser.' },
+    })
+    expect(value.activityTargets()).toEqual(new Set(['chat']))
+
+    value.replaceWindow([
+      at(1, 'command/run', { commandId: 'command-1', name: 'kiro-login', source: { kind: 'user' } }),
+      at(2, 'command/done', {
+        commandId: 'command-1', kind: 'success', text: 'Approve the Kiro sign-in in your browser.',
+      }),
+    ], false)
+    expect(value.activityTargets()).toEqual(new Set(['chat']))
   })
 
   it('keeps the Turn rail projection current when a chunk updates one node in place', () => {

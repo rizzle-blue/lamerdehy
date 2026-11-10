@@ -1945,6 +1945,38 @@ export interface Config extends ProtocolConfig, ModelListingConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-api-key -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-kiro -->
+<a id="deepseek-aidsh-llm-kiro"></a>
+
+## `@deepseek-ai/dsh-llm-kiro`
+
+- `inject`: `llm` · `credentials` · `authorization`
+- `source`: [`packages/llm/llm-kiro/src/index.ts:17`](../packages/llm/llm-kiro/src/index.ts)
+
+```ts config-catalog
+/** Deployment settings for Kiro authorization and inference. */
+export interface Config extends KiroConfig {}
+
+/** Validated Kiro settings, read by sign-in, model discovery, usage, and streaming alike. */
+export interface KiroConfig {
+  /**
+   * Longest one Kiro sign-in, profile, catalog, or usage request may take, in
+   * milliseconds, from 1 to 25,000 (default 15,000). A token refresh holds the
+   * credential record's write lock for one such request, and the local
+   * credential store makes other writers wait at most 30 seconds, so the
+   * bound keeps a refresh from failing them.
+   */
+  requestTimeoutMs: number
+  /** Longest wait for the first stream event after a conversation request is sent, in milliseconds (default 180,000). */
+  firstEventTimeoutMs: number
+  /** Longest gap between stream events once output has begun, in milliseconds (default 300,000). */
+  idleTimeoutMs: number
+  /** How long before its expiry an access token is refreshed, in milliseconds (default 300,000). */
+  expiryMarginMs: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-kiro -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
 <a id="deepseek-aidsh-llm-pi-ai"></a>
 
