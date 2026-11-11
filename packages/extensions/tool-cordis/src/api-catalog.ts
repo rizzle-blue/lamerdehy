@@ -554,6 +554,50 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'authorizationController',
+    summary: 'Host service backing the generated `ctx.remote.authorization` namespace.',
+    description: 'Host service backing the generated `ctx.remote.authorization` namespace. No method returns a credential value, and prompt answers are handed to the flow without being retained or echoed.',
+    methods: [
+      {
+        signature: '@Remote async list(): Promise<SignInEntry[]>',
+        description: 'The offered sign-ins whose flow is registered right now, in configured order.',
+        parameters: [],
+        returns: 'one entry per available flow with its stored-credential state.',
+      },
+      {
+        signature: '@Remote start(key: CredentialKey, method: string | undefined): SignInAttemptView',
+        description: 'Start a sign-in, or return the attempt already running for the key.',
+        parameters: [{ name: 'key', description: 'an offered credential key.' }, { name: 'method', description: 'one of the flow\'s method ids; omitted runs its first.' }],
+        returns: 'the attempt\'s current view; later changes arrive through {@link watch}.',
+        throws: ['RemoteError `authorization/unknown-flow` when the key is not offered.', 'RemoteError `authorization/unavailable` when the controller is shutting down or a sign-out for the key is in progress.'],
+      },
+      {
+        signature: '@Remote answer(attemptId: SignInAttemptId, promptId: SignInPromptId, value: string): void',
+        description: 'Answer the question a running attempt is waiting on.',
+        parameters: [{ name: 'attemptId', description: 'the attempt the page is showing.' }, { name: 'promptId', description: 'the question the page is showing.' }, { name: 'value', description: 'typed text, or the chosen option\'s id.' }],
+        throws: ['RemoteError `authorization/stale-prompt` when that question is no longer pending.'],
+      },
+      {
+        signature: '@Remote cancel(attemptId: SignInAttemptId): void',
+        description: 'Withdraw a running attempt; an attempt that already settled is left as it is.',
+        parameters: [{ name: 'attemptId', description: 'the attempt the page is showing.' }],
+      },
+      {
+        signature: '@Remote async signOut(key: CredentialKey): Promise<void>',
+        description: 'Withdraw any running attempt for the key, wait for it to settle, then delete its stored credential. Waiting matters when the attempt is already committing its credential: `ctx.authorization` lets an admitted commit finish, and deleting first would let that commit restore the sign-in. This forgets the sign-in locally; it does not revoke it at the issuer.',
+        parameters: [{ name: 'key', description: 'an offered credential key.' }],
+        throws: ['RemoteError `authorization/unknown-flow` when the key is not offered.'],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *watch(key: CredentialKey, signal: AbortSignal): AsyncIterable<SignInWatchFrame>',
+        description: 'Stream the latest attempt for one key: the current state, then one frame per change.',
+        parameters: [{ name: 'key', description: 'an offered credential key.' }, { name: 'signal', description: 'stream lifetime; aborting stops observation, not the attempt.' }],
+        returns: 'frames carrying the whole attempt view.',
+        throws: ['RemoteError `authorization/unknown-flow` when the key is not offered.'],
+      },
+    ],
+  },
+  {
     key: 'browserUse',
     summary: 'Owns one optional provider registration in the shared browser-use service.',
     description: 'Owns one optional provider registration in the shared browser-use service.',
@@ -9024,16 +9068,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ShellSandboxInfo {\n    mode: SandboxMode;\n    denied: boolean;\n    enforcement?: SandboxEnforcement;\n    runnerFailed?: boolean;\n}',
   },
   {
-    name: 'SignInAttemptId',
-    declaration: 'export type SignInAttemptId = Branded<\'SignInAttemptId\'>;',
+    name: 'SignInEntry',
+    declaration: 'export interface SignInEntry {\n    readonly key: CredentialKey;\n    readonly label: string;\n    readonly methods: readonly AuthorizationMethod[];\n    readonly signedIn: boolean;\n}',
   },
   {
-    name: 'SignInAttemptView',
-    declaration: 'export interface SignInAttemptView {\n    readonly id: SignInAttemptId;\n    readonly phase: \'initializing\' | \'waiting-browser\' | \'exchanging\' | \'committing\' | \'succeeded\' | \'cancelled\' | \'expired\' | \'failed\';\n    readonly authorizeUrl?: string;\n    readonly expiresAt?: number;\n    readonly errorCode?: SignInErrorCode;\n}',
+    name: 'SignInPromptId',
+    declaration: 'export type SignInPromptId = Branded<\'AuthorizationSignInPromptId\'>;',
   },
   {
-    name: 'SignInErrorCode',
-    declaration: 'export type SignInErrorCode = \'no-response\' | \'network\' | \'protocol\' | \'expired\' | \'storage\';',
+    name: 'SignInWatchFrame',
+    declaration: 'export interface SignInWatchFrame {\n    readonly attempt: SignInAttemptView | null;\n}',
   },
   {
     name: 'SkillCandidate',

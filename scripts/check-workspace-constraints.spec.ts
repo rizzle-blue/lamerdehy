@@ -34,6 +34,29 @@ const experimental = {
   },
 } satisfies WorkspaceManifest
 
+describe('Lam Hy package source repositories', () => {
+  it.each([
+    ['packages/llm/llm-kiro', 'llm-kiro'],
+    ['packages/api/authorization-controller', 'api-authorization-controller'],
+    ['packages/client/ui-settings-sign-in', 'client-ui-settings-sign-in'],
+  ])('requires the fork repository for %s', (dir, suffix) => {
+    const check = (url: string): string[] => checkWorkspaceManifest({ dir, manifest: {
+      name: `@deepseek-ai/dsh-${suffix}`,
+      repository: { type: 'git', url, directory: dir },
+    } }).filter(error => error.includes('repository must use'))
+    expect(check('git+https://github.com/rizzle-blue/lamhy.git')).toEqual([])
+    expect(check('git+https://github.com/deepseek-ai/deepseek-harness.git')).toHaveLength(1)
+  })
+
+  it('keeps upstream packages on the upstream repository', () => {
+    const errors = checkWorkspaceManifest({ dir: 'packages/core/tools', manifest: {
+      name: '@deepseek-ai/dsh-tools',
+      repository: { type: 'git', url: 'git+https://github.com/rizzle-blue/lamhy.git', directory: 'packages/core/tools' },
+    } })
+    expect(errors.some(error => error.includes('repository must use git+https://github.com/deepseek-ai/deepseek-harness.git'))).toBe(true)
+  })
+})
+
 describe('workspace dependency ranges', () => {
   const dependency = { dir: 'packages/core/runtime', manifest: { name: '@deepseek-ai/dsh-runtime' } }
   const cli = { dir: 'apps/cli', manifest: { name: '@deepseek-ai/dsh' } }

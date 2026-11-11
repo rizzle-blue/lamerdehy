@@ -148,7 +148,7 @@ export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
     }
     ctx.authorization.registerFlow({
       key: recordKeyFor(providerId),
-      label: provider.name,
+      label: providerId === 'openai-codex' ? 'ChatGPT subscription' : provider.name,
       methods: [first, ...rest],
       async run(session) {
         // A collection of its own, holding only the provider being signed

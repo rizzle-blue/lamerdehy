@@ -1208,6 +1208,42 @@ it.each([
   } else await expect(adapter.listModels('deepseek')).rejects.toBe(error)
 })
 
+describe('subscription-only routes', () => {
+  /** A keyless `openai-codex` route, signed in when `signedIn` holds. */
+  function codex(signedIn: boolean, apiKey?: string): PiAiAdapter {
+    return new PiAiAdapter({
+      profiles: () => resolveProfiles({ 'openai-codex': {} }),
+      resolveApiKey: () => Promise.resolve(apiKey),
+      auth: memoryAuth(signedIn
+        ? { 'openai-codex': { type: 'oauth', access: 'at', refresh: 'rt', expires: Date.now() + 3_600_000 } }
+        : {}),
+    })
+  }
+
+  it('offers no models until the subscription is signed in', async () => {
+    expect(await codex(false).listModels('openai-codex')).toEqual([])
+    const models = await codex(true).listModels('openai-codex')
+    expect(models.map(model => model.id)).toEqual(getBuiltinModels('openai-codex').map(model => model.id))
+  })
+
+  it('refuses a request without a sign-in and names where to sign in', async () => {
+    const adapter = codex(false)
+    const model = getBuiltinModels('openai-codex')[0]!.id
+    const failure = await (async () => {
+      for await (const _chunk of adapter.stream({ provider: 'openai-codex', model, messages: [] })) { /* unreachable */ }
+    })().catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(LlmError)
+    expect(failure).toMatchObject({ code: 'MISSING_CREDENTIAL' })
+    expect((failure as Error).message).toBe(
+      'OpenAI (ChatGPT Plus/Pro) is not signed in. Sign in under Settings → Models → Subscription accounts, then try again.',
+    )
+  })
+
+  it('lets a named key serve the route without a sign-in', async () => {
+    expect((await codex(false, 'codex-token').listModels('openai-codex')).length).toBeGreaterThan(0)
+  })
+})
+
 it('resolves the exact pi-ai image budget for screenshot coordinates', () => {
   const adapter = adapterOf({ deepseek: { apiKeyEnv: 'PI_TEST_KEY', requestImagePixelBudget: 10_000, requestImageMaxBytes: 50_000 } })
   expect(adapter.imageRequestTarget('deepseek', 'deepseek-flash', { ...IMAGE_REF, width: 1000, height: 1000 }))

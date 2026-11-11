@@ -422,14 +422,14 @@ const noRequest: Handler = () => {
 }
 
 describe('Kiro credential', () => {
-  it('is missing until a sign-in stored it, and points the user to /kiro-login', async () => {
+  it('is missing until a sign-in stored it, and points the user to the Models page sign-in', async () => {
     const h = await harness(noRequest)
 
     for (const read of [() => h.auth.credential(), () => h.auth.access()]) {
       const error = await failureOf(read())
 
       expect(error.code).toBe('MISSING_CREDENTIAL')
-      expect(error.message).toContain('/kiro-login')
+      expect(error.message).toContain('Settings → Models → Subscription accounts')
     }
   })
 
@@ -543,7 +543,7 @@ describe('Kiro credential', () => {
     expect(h.calls).toHaveLength(0)
   })
 
-  it('reports a dead refresh grant as an AUTH failure that points to /kiro-login, and keeps the saved credential', async () => {
+  it('reports a dead refresh grant as an AUTH failure that points to the Models page sign-in, and keeps the saved credential', async () => {
     const dead = [
       { error: 'invalid_grant', error_description: 'Invalid refresh token provided' },
       { error: 'expired_token', error_description: null },
@@ -556,7 +556,7 @@ describe('Kiro credential', () => {
       const error = await failureOf(h.auth.credential())
 
       expect(error.code).toBe('AUTH')
-      expect(error.message).toContain('/kiro-login')
+      expect(error.message).toContain('Settings → Models → Subscription accounts')
       expect(error.message).not.toContain('refresh-1')
       expect(error.message).not.toContain('secret-1')
       expect(error.cause).toBeInstanceOf(KiroHttpError)

@@ -131,6 +131,68 @@ async begin(request: AuthorizationRequest): Promise<AuthorizationOutcome>
 
 Source: [`packages/credentials/authorization/src/index.ts`](../../packages/credentials/authorization/src/index.ts)
 
+<a id="ctxauthorizationcontroller--authorizationcontroller"></a>
+
+### `ctx.authorizationController` — `AuthorizationController`
+
+Host service backing the generated `ctx.remote.authorization` namespace. No method returns a credential value, and prompt answers are handed to the flow without being retained or echoed.
+
+```ts cordis-catalog
+/**
+ * The offered sign-ins whose flow is registered right now, in configured order.
+ * @returns one entry per available flow with its stored-credential state.
+ */
+@Remote async list(): Promise<SignInEntry[]>
+
+/**
+ * Start a sign-in, or return the attempt already running for the key.
+ * @param key - an offered credential key.
+ * @param method - one of the flow's method ids; omitted runs its first.
+ * @returns the attempt's current view; later changes arrive through {@link watch}.
+ * @throws RemoteError `authorization/unknown-flow` when the key is not offered.
+ * @throws RemoteError `authorization/unavailable` when the controller is shutting down or a
+ *   sign-out for the key is in progress.
+ */
+@Remote start(key: CredentialKey, method: string | undefined): SignInAttemptView
+
+/**
+ * Answer the question a running attempt is waiting on.
+ * @param attemptId - the attempt the page is showing.
+ * @param promptId - the question the page is showing.
+ * @param value - typed text, or the chosen option's id.
+ * @throws RemoteError `authorization/stale-prompt` when that question is no longer pending.
+ */
+@Remote answer(attemptId: SignInAttemptId, promptId: SignInPromptId, value: string): void
+
+/**
+ * Withdraw a running attempt; an attempt that already settled is left as it is.
+ * @param attemptId - the attempt the page is showing.
+ */
+@Remote cancel(attemptId: SignInAttemptId): void
+
+/**
+ * Withdraw any running attempt for the key, wait for it to settle, then
+ * delete its stored credential. Waiting matters when the attempt is already
+ * committing its credential: `ctx.authorization` lets an admitted commit
+ * finish, and deleting first would let that commit restore the sign-in.
+ * This forgets the sign-in locally; it does not revoke it at the issuer.
+ * @param key - an offered credential key.
+ * @throws RemoteError `authorization/unknown-flow` when the key is not offered.
+ */
+@Remote async signOut(key: CredentialKey): Promise<void>
+
+/**
+ * Stream the latest attempt for one key: the current state, then one frame per change.
+ * @param key - an offered credential key.
+ * @param signal - stream lifetime; aborting stops observation, not the attempt.
+ * @returns frames carrying the whole attempt view.
+ * @throws RemoteError `authorization/unknown-flow` when the key is not offered.
+ */
+@Remote({ mode: 'stream' }) async *watch(key: CredentialKey, signal: AbortSignal): AsyncIterable<SignInWatchFrame>
+```
+
+Source: [`packages/api/authorization-controller/src/index.ts`](../../packages/api/authorization-controller/src/index.ts)
+
 <a id="ctxcredentials--credentialprovider-abstract-seam"></a>
 
 ### `ctx.credentials` — `CredentialProvider` (abstract seam)

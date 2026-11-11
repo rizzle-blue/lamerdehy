@@ -315,7 +315,7 @@ describe('built-in conversation node Definitions', () => {
 
     value.append(at(1, 'command/run', {
       commandId: 'command-1',
-      name: 'kiro-login',
+      name: 'status',
       source: { kind: 'user' },
     }))
     value.flush()
@@ -324,20 +324,20 @@ describe('built-in conversation node Definitions', () => {
     value.append(at(2, 'command/done', {
       commandId: 'command-1',
       kind: 'success',
-      text: 'Approve the Kiro sign-in in your browser.',
+      text: 'Ready.',
     }))
     value.flush()
     const current = snapshot(value)
     expect(current.nodes.get(current.order[0] ?? '')?.data).toMatchObject({
       kind: 'command',
-      outcome: { kind: 'success', text: 'Approve the Kiro sign-in in your browser.' },
+      outcome: { kind: 'success', text: 'Ready.' },
     })
     expect(value.activityTargets()).toEqual(new Set(['chat']))
 
     value.replaceWindow([
-      at(1, 'command/run', { commandId: 'command-1', name: 'kiro-login', source: { kind: 'user' } }),
+      at(1, 'command/run', { commandId: 'command-1', name: 'status', source: { kind: 'user' } }),
       at(2, 'command/done', {
-        commandId: 'command-1', kind: 'success', text: 'Approve the Kiro sign-in in your browser.',
+        commandId: 'command-1', kind: 'success', text: 'Ready.',
       }),
     ], false)
     expect(value.activityTargets()).toEqual(new Set(['chat']))

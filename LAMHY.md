@@ -70,6 +70,12 @@ Two parts of the Kiro commit are not yet in that shape:
 
 Kiro talks to Kiro and AWS endpoints because the user selected Kiro as a model provider; that traffic is the requested service, not telemetry. The adapter sends `x-amzn-codewhisperer-optout: true` to opt out of CodeWhisperer data use, and the telemetry skill checks that the header stays.
 
+### Subscription sign-in on the Models page
+
+ChatGPT Plus/Pro and Kiro sign in from **Settings → Models → Subscription accounts**, which [`ui-settings-sign-in`](packages/client/ui-settings-sign-in/README.md) renders over the [`authorization` Remote](packages/api/authorization-controller/README.md). The controller runs the existing `ctx.authorization` flows on the Host, offers only an allowlist (`llm-pi-ai/openai-codex` and `llm-kiro/kiro` by default), and keeps attempt state on the Host so a reload rejoins it. The `/kiro-login`, `/kiro-logout`, and `/kiro-usage` commands were removed in favor of this section; slash commands were rejected as the sign-in surface because they cannot open a browser tab, mask a pasted secret, or show a code to check.
+
+ChatGPT uses pi-ai's `openai-codex` provider and its OAuth flow, which offers browser login with a pasted-URL fallback and device-code login. pi-ai's "Sign in with ChatGPT" on the `openai` provider stays withheld: it requires a stable installation UUID sent to OpenAI, which the [no-telemetry decision](#outbound-data-delete-do-not-disable) rules out. The base bundle ships the `openai-codex` route with no key; `llm-pi-ai` lists no models for a keyless subscription-only route and fails its requests with `MISSING_CREDENTIAL` until a sign-in is stored, so the picker stays clean for users who never sign in. Traffic to `auth.openai.com` and `chatgpt.com` is the service the user requested. pi-ai sends `originator: pi` with Codex requests; that header is protocol identification, not telemetry.
+
 ### Outbound data: delete, do not disable
 
 Lam Hy deletes telemetry packages and their bundle rows, and the [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md) skill rejects them if a sync brings them back. Disabling through configuration was rejected because a default can flip upstream without a merge conflict, and the user would not notice.
@@ -104,6 +110,8 @@ Open questions for the CLI:
 | Package | Path | Purpose |
 | --- | --- | --- |
 | `@deepseek-ai/dsh-llm-kiro` | `packages/llm/llm-kiro` | Kiro model provider. |
+| `@deepseek-ai/dsh-api-authorization-controller` | `packages/api/authorization-controller` | `authorization` Remote: run allowlisted sign-in flows for a settings page. |
+| `@deepseek-ai/dsh-client-ui-settings-sign-in` | `packages/client/ui-settings-sign-in` | Subscription-account sign-in section on the Models page. |
 
 Add a row when a package lands. Edits to upstream files for a new package are limited to Wiring.
 
@@ -119,7 +127,7 @@ A new package must not send data anywhere except the service the user configured
 
 Implemented:
 
-- Fork-owned packages: the Kiro provider. It is currently enabled in `packages/bundle/base/cordis.patch.yml`, an upstream file.
+- Fork-owned packages: the Kiro provider and the Models page subscription sign-in. Kiro and the ChatGPT `openai-codex` route are enabled in `packages/bundle/base/cordis.patch.yml`, and the sign-in rows in `packages/bundle/web-app/cordis.patch.yml`; both are upstream files.
 - Fork skills: [lamhy-sync-upstream](.agents/skills/lamhy-sync-upstream/SKILL.md), [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md), [lamhy-english-only](.agents/skills/lamhy-english-only/SKILL.md), and [lamhy-rebrand](.agents/skills/lamhy-rebrand/SKILL.md).
 - The [verify-lamhy-fork](scripts/verify-lamhy-fork.ts) drift check and its pre-push hook.
 
@@ -127,7 +135,7 @@ Not yet implemented:
 
 - The first run of each policy skill. `pnpm run verify-lamhy-fork` reports the backlog: about 230 telemetry, 2,790 Chinese-file, and 410 upstream-name violations.
 - The `lamhy` binary and its `apps/lamhy` package.
-- The `lamhy-base` bundle, and moving the Kiro row out of the upstream base bundle into it.
+- The `lamhy-base` bundle, and moving the Kiro, `openai-codex`, and sign-in rows out of the upstream bundles into it.
 - The `~/.lamhy` home mapping.
 - Proposing the `ui-chat` `isActive` change upstream.
 

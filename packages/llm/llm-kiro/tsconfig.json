@@ -10,7 +10,6 @@
     { "path": "../../fs/fs" },
     { "path": "../../credentials/authorization" },
     { "path": "../../credentials/credentials" },
-    { "path": "../../interaction/commands" },
     { "path": "../llm" }
   ]
 }

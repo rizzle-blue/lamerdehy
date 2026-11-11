@@ -1,0 +1,23 @@
+{
+  "extends": "../../../tsconfig.base.client.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../locale/tsconfig.client.json" },
+    { "path": "../../../vendor/cordis" },
+    { "path": "../store" },
+    { "path": "../../test-support/client-runtime" },
+    { "path": "../ui-primitives" },
+    { "path": "../ui-renderer" },
+    { "path": "../ui-settings-models" },
+    { "path": "../ui-slots" },
+    { "path": "../../api/remotes/tsconfig.client.json" },
+    { "path": "../../api/gateway/tsconfig.client.json" },
+    { "path": "../../api/authorization-controller" }
+  ]
+}

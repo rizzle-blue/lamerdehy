@@ -253,7 +253,7 @@ describe('model resolution', () => {
   })
 
   it('fails resolution while signed out with the credential owner\'s actionable error', async () => {
-    const signedOut = new LlmError('Kiro is not signed in. Run /kiro-login.', 'MISSING_CREDENTIAL')
+    const signedOut = new LlmError('Kiro is not signed in.', 'MISSING_CREDENTIAL')
     const { adapter } = harness(unexpected, { auth: { access: () => Promise.reject(signedOut) } })
 
     await expect(adapter.resolveModel('kiro', MODEL)).rejects.toBe(signedOut)

@@ -29,11 +29,9 @@ Base-backed profiles include this integration. It does not change the default mo
 
 ### Sign in and select a model
 
-In a Harness conversation, run `/kiro-login` for a personal AWS Builder ID account. Open the returned approval link and approve the device code. Run `/kiro-login status` to check completion, then refresh the model list and select a model under `kiro`.
+Open **Settings → Models** and select **Sign in** on the **Kiro** row under **Subscription accounts**. Leave the start URL blank for a personal AWS Builder ID account, or enter `https://<your-org>.awsapps.com/start` for IAM Identity Center and then its region, blank to detect it. Open the sign-in page the dialog offers, check that it shows the same code, and approve. Once the dialog reports success, select a model under `kiro`. **Cancel** withdraws an unfinished attempt. **Sign out** deletes the saved credential; it does not revoke the AWS account's sessions elsewhere.
 
-For IAM Identity Center, run `/kiro-login https://<your-org>.awsapps.com/start <region>`. Omitting the region enables region discovery. Use `/kiro-login cancel` to withdraw an unfinished attempt. `/kiro-logout` cancels an unfinished attempt and deletes the saved credential; it does not revoke the AWS account's sessions elsewhere.
-
-Run `/kiro-usage` to query the account plan, credit allowance, remaining credits, and reset date. Usage and catalog failures remain errors rather than an empty catalog or a zero balance. A free account can expose fewer models than a paid account.
+Catalog failures remain errors rather than an empty catalog. A free account can expose fewer models than a paid account.
 
 ### Custom compositions
 
@@ -43,7 +41,7 @@ Mount this plugin alongside the LLM, credential, and authorization services:
 - name: '@deepseek-ai/dsh-llm-kiro'
 ```
 
-The conversation commands are available when the composition also mounts the commands service. Programmatic callers can use the authorization service directly; the owner-scoped record belongs to `llm-kiro`.
+The Models page sign-in needs the Web composition's [authorization controller](../../api/authorization-controller/README.md). Programmatic callers can use the authorization service directly; the owner-scoped record `llm-kiro/kiro` belongs to this plugin.
 
 The `headless` profile disables stored credentials and authorization by default. To use the Kiro login saved by Web, enable both rows in its profile or invocation patch:
 
@@ -60,7 +58,7 @@ Set these fields under the plugin row's `config`. All durations use milliseconds
 
 | Field | Default | Meaning |
 |---|---|---|
-| `requestTimeoutMs` | `15000` | Deadline for an authorization, catalog, or usage HTTP request |
+| `requestTimeoutMs` | `15000` | Deadline for an authorization, account, or catalog HTTP request |
 | `firstEventTimeoutMs` | `180000` | Maximum wait for the first inference event |
 | `idleTimeoutMs` | `300000` | Maximum idle interval during inference |
 | `expiryMarginMs` | `300000` | Refresh credentials this long before expiry |
@@ -98,7 +96,7 @@ The protocol implementation is adapted from [omp-kiro-provider](https://github.c
 
 #### What the model sees
 
-Kiro receives the selected model, system instructions, conversation content, and active tool declarations through its native conversation protocol. Credentials, authorization notices, and usage-command output do not enter model requests. Turn normalization can insert the text below for empty input, interrupted or empty tool results, and historical tool declarations. Oversized results retain their head and tail around `[TRUNCATED <count> characters]`.
+Kiro receives the selected model, system instructions, conversation content, and active tool declarations through its native conversation protocol. Credentials and authorization notices do not enter model requests. Turn normalization can insert the text below for empty input, interrupted or empty tool results, and historical tool declarations. Oversized results retain their head and tail around `[TRUNCATED <count> characters]`.
 
 ##### Normalization text
 

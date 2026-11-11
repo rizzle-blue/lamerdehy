@@ -87,6 +87,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   compaction: 'compaction.md',
   cordisInspect: 'extensions.md',
   authorization: 'credentials.md',
+  authorizationController: 'credentials.md',
   deepseekAccount: 'credentials.md',
   credentials: 'credentials.md',
   credentialsController: 'credentials.md',
@@ -987,6 +988,10 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
+  SignInEntry: 'Subscription sign-in rows are owned by packages/api/authorization-controller/README.md',
+  SignInAttemptView: 'Subscription sign-in attempt state is owned by packages/api/authorization-controller/README.md',
+  SignInPromptId: 'Subscription sign-in question identity is owned by packages/api/authorization-controller/README.md',
+  SignInWatchFrame: 'Subscription sign-in observation frames are owned by packages/api/authorization-controller/README.md',
   ActionCardDecision: 'packages/experimental/action-cards/README.md',
   ActionCardKind: 'packages/experimental/action-cards/README.md',
   ActionCardResult: 'packages/experimental/action-cards/README.md',

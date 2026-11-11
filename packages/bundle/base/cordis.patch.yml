@@ -125,15 +125,17 @@
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
 
-    # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
-    # models in the picker) until a `llm-pi-ai:` settings section supplies provider
-    # profiles — then those routes register live, keys resolving per request
-    # through their apiKeyEnv references, and drop again when the section empties.
-    # Supplying those profiles is exactly what the web Models page does. Which
-    # adapters exist is composition; which providers run is the user's settings
-    # document.
+    # The Models page adds provider routes through llm-pi-ai settings;
+    # credential references resolve per request without a restart.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      # Lam Hy: the ChatGPT Plus/Pro subscription route ships configured. It
+      # lists no models and refuses requests until the user signs in under
+      # Settings → Models → Subscription accounts.
+      config:
+        providers:
+          openai-codex:
+            displayName: ChatGPT subscription
 
     - id: llm-kiro
       name: '@deepseek-ai/dsh-llm-kiro'

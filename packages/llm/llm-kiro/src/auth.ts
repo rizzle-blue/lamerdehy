@@ -34,8 +34,8 @@ import {
 } from './endpoints.ts'
 import { KiroHttpError, requestJson, systemRuntime } from './http.ts'
 import type { KiroRuntime } from './http.ts'
-import { fetchIdentity } from './usage.ts'
-import type { KiroIdentity } from './usage.ts'
+import { fetchIdentity } from './identity.ts'
+import type { KiroIdentity } from './identity.ts'
 
 /**
  * Address of the saved Kiro credential. The scope is the plugin's registered
@@ -175,13 +175,13 @@ export function kiroGrantRecord(credential: KiroCredential): CredentialRecord {
 function grantOf(record: CredentialRecord | undefined): KiroCredential {
   if (record === undefined) {
     throw new LlmError(
-      'Kiro is not signed in. Run /kiro-login to sign in with AWS Builder ID or IAM Identity Center.',
+      'Kiro is not signed in. Sign in with AWS Builder ID or IAM Identity Center under Settings → Models → Subscription accounts.',
       'MISSING_CREDENTIAL',
     )
   }
   const parsed = record.kind === 'grant' ? Grant.safeParse(record.payload) : undefined
   if (parsed === undefined || !parsed.success) {
-    throw new LlmError('The saved Kiro sign-in is unreadable. Run /kiro-login to sign in again.', INVALID_CREDENTIAL_CODE)
+    throw new LlmError('The saved Kiro sign-in is unreadable. Sign in again under Settings → Models → Subscription accounts.', INVALID_CREDENTIAL_CODE)
   }
   return parsed.data
 }
@@ -314,7 +314,7 @@ export class KiroAuth {
       if (error instanceof KiroHttpError && error.errorCode !== undefined
         && DEAD_GRANT_CODES.includes(error.errorCode.toLowerCase())) {
         throw new LlmError(
-          `Kiro sign-in expired or was revoked (${error.errorCode}). Run /kiro-login to sign in again.`,
+          `Kiro sign-in expired or was revoked (${error.errorCode}). Sign in again under Settings → Models → Subscription accounts.`,
           'AUTH',
           { cause: error },
         )
@@ -451,13 +451,13 @@ export class KiroAuth {
           continue
         }
         if (code === 'access_denied' || code === 'accessdeniedexception') {
-          throw new LlmError('The Kiro sign-in was denied in the browser. Run /kiro-login to try again.', 'LOGIN_DENIED', { cause: error })
+          throw new LlmError('The Kiro sign-in was denied in the browser. Try again.', 'LOGIN_DENIED', { cause: error })
         }
         if (code === 'expired_token' || code === 'expiredtokenexception') break
         throw error
       }
     }
-    throw new LlmError('The Kiro sign-in code expired before it was approved. Run /kiro-login to start again.', 'LOGIN_EXPIRED')
+    throw new LlmError('The Kiro sign-in code expired before it was approved. Try again.', 'LOGIN_EXPIRED')
   }
 
   /**

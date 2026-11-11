@@ -7,11 +7,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-fs'
 import { resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
 import { KiroAdapter } from './adapter.ts'
-import { KiroAuth, KIRO_CREDENTIAL_KEY } from './auth.ts'
+import { KiroAuth } from './auth.ts'
 import { Config as KiroSchema } from './config.ts'
 import type { KiroConfig } from './config.ts'
-import { registerKiroCommands } from './commands.ts'
-import { queryUsage, renderUsage } from './usage.ts'
 
 /** Deployment settings for Kiro authorization and inference. */
 export interface Config extends KiroConfig {}
@@ -40,10 +38,4 @@ export function apply(ctx: Context, config: Config): void {
     ),
   })
   ctx.llm.registerAdapter(['kiro'], adapter)
-  ctx.inject(['commands', 'credentials', 'authorization'], (child) => {
-    registerKiroCommands(child, {
-      key: KIRO_CREDENTIAL_KEY,
-      usage: async signal => renderUsage(await queryUsage(await auth.access(signal), config, signal)),
-    })
-  })
 }

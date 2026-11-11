@@ -45,6 +45,7 @@
     "apps/web/tests/voice-download.e2e.ts",
     "apps/web/tests/prefix-proxy.ts",
     "apps/web/tests/developer-tools-settings.e2e.ts",
+    "apps/web/tests/subscription-sign-in.e2e.ts",
     "apps/web/tests/auto-review-fixture.ts",
     "apps/web/tests/auto-review-approval.e2e.ts",
     "apps/web/tests/auto-review-denial.e2e.ts",
@@ -207,7 +208,6 @@
     "apps/web/tests/feedback-command.e2e.ts",
     "apps/web/tests/feedback-release.e2e.ts",
     "apps/web/tests/goal-command-presentation.e2e.ts",
-    "apps/web/tests/kiro-command-presentation.e2e.ts",
     "apps/web/tests/startup-auto-selection.e2e.ts",
     "apps/web/tests/changed-files-turn.e2e.ts",
     "apps/web/tests/produced-file-mentions.e2e.ts",
@@ -327,6 +327,7 @@
     { "path": "./packages/document/office-to-pdf" },
 
     { "path": "./packages/api/account-controller" },
+    { "path": "./packages/api/authorization-controller" },
     { "path": "./packages/credentials/deepseek-account-platform" },
     { "path": "./packages/credentials/deepseek-account" },
     { "path": "./packages/client/ui-deliverables/tsconfig.host.json" },

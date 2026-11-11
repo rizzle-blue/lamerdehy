@@ -12,7 +12,7 @@ import { installProxyFromEnvironment } from '@deepseek-ai/dsh-http-proxy'
 import { KIRO_CREDENTIAL_KEY, KiroAuth, kiroGrantRecord } from '../src/auth.ts'
 import type { KiroAccess } from '../src/auth.ts'
 import { listModels, resolveProfile } from '../src/catalog.ts'
-import { queryUsage } from '../src/usage.ts'
+import { fetchIdentity } from '../src/identity.ts'
 import { config } from './wire.ts'
 
 // `zz-test-1` is shaped like an AWS region and names no real one, so a request that bypassed the proxy
@@ -129,8 +129,8 @@ describe('Kiro egress', () => {
     expect(observed).toContain(`CONNECT management.${REGION}.kiro.dev:443`)
   })
 
-  it('sends the usage query through the proxy', async () => {
-    const observed = await observe(() => queryUsage(ACCESS, config))
+  it('sends the account identity query through the proxy', async () => {
+    const observed = await observe(() => fetchIdentity(ACCESS, config))
 
     expect(observed).toContain(`CONNECT management.${REGION}.kiro.dev:443`)
   })

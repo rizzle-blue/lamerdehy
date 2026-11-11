@@ -135,7 +135,7 @@ export async function resolveProfile(
   if (options.builderId) return { arn: BUILDER_ID_PROFILE_ARN, region: KIRO_DEFAULT_REGION }
   throw new LlmError(
     'Kiro: no Kiro profile is available for this account. Ask your AWS administrator to assign you Kiro access,'
-    + ' then run /kiro-login again.',
+    + ' then sign in again.',
     'NO_PROFILE',
     { cause: lastError },
   )

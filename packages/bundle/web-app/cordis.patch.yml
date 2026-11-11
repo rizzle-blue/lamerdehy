@@ -143,6 +143,11 @@
     - id: account-controller
       name: '@deepseek-ai/dsh-api-account-controller'
 
+    # Subscription-account sign-in (ChatGPT, Kiro) for the Models page: runs
+    # the allowlisted ctx.authorization flows on the Host for one browser page.
+    - id: authorization-controller
+      name: '@deepseek-ai/dsh-api-authorization-controller'
+
     - id: settings-controller
       name: '@deepseek-ai/dsh-api-settings-controller'
 
@@ -315,6 +320,9 @@
 
     - id: ui-settings-models
       name: '@deepseek-ai/dsh-client-ui-settings-models'
+
+    - id: ui-settings-sign-in
+      name: '@deepseek-ai/dsh-client-ui-settings-sign-in'
 
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.

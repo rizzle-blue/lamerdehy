@@ -334,13 +334,32 @@ export class PiAiAdapter extends LlmAdapter {
     return this.current().profiles.get(provider)?.retryPolicy
   }
 
+  /**
+   * The route's credential, or the refusal for a keyless route over a
+   * subscription-only provider (`openai-codex`) that has no stored sign-in.
+   * Such a provider offers OAuth alone, so without a sign-in pi-ai would
+   * refuse it later with a message that names no remedy.
+   * @throws {LlmError} code `MISSING_CREDENTIAL` when neither a key nor a sign-in exists.
+   */
+  private async credentialOf(snapshot: PiAiSnapshot, provider: string, profile: ResolvedPiAiProviderProfile): Promise<string | undefined> {
+    const apiKey = await this.config.resolveApiKey(provider, profile)
+    if (apiKey !== undefined) return apiKey
+    const auth = snapshot.models.getProvider(provider)?.auth
+    if (auth?.oauth === undefined || auth.apiKey !== undefined) return undefined
+    if (await snapshot.models.checkAuth(provider) !== undefined) return undefined
+    throw new LlmError(
+      `${auth.oauth.name} is not signed in. Sign in under Settings → Models → Subscription accounts, then try again.`,
+      'MISSING_CREDENTIAL',
+    )
+  }
+
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve().then(async () => {
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try { await this.config.resolveApiKey(provider, profile) }
+      try { await this.credentialOf(snapshot, provider, profile) }
       catch (error) {
-        // A route whose named key does not resolve cannot serve a request, so it offers no models until the key is stored.
+        // A route without its key or sign-in cannot serve a request, so it offers no models until one is stored.
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }
@@ -423,7 +442,7 @@ export class PiAiAdapter extends LlmAdapter {
       model,
       options.reasoningEffort ?? profile.reasoning,
     )
-    const apiKey = await this.config.resolveApiKey(options.provider, profile)
+    const apiKey = await this.credentialOf(snapshot, options.provider, profile)
 
     const consumer = new AbortController()
     const upstream = options.signal === undefined

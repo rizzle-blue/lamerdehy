@@ -216,6 +216,23 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-tool-presentation -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-authorization-controller -->
+<a id="deepseek-aidsh-api-authorization-controller"></a>
+
+## `@deepseek-ai/dsh-api-authorization-controller`
+
+- `inject`: `authorization` · `credentials`
+- `source`: [`packages/api/authorization-controller/src/index.ts:56`](../packages/api/authorization-controller/src/index.ts)
+
+```ts config-catalog
+/** Deployment policy of the controller. */
+export interface Config {
+  /** Credential keys (`<scope>/<id>`) whose sign-in the page may offer, in display order. */
+  flows: string[]
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-authorization-controller -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-gateway -->
 <a id="deepseek-aidsh-api-gateway"></a>
 
@@ -1951,7 +1968,7 @@ export interface Config extends ProtocolConfig, ModelListingConfig {
 ## `@deepseek-ai/dsh-llm-kiro`
 
 - `inject`: `llm` · `credentials` · `authorization`
-- `source`: [`packages/llm/llm-kiro/src/index.ts:17`](../packages/llm/llm-kiro/src/index.ts)
+- `source`: [`packages/llm/llm-kiro/src/index.ts:15`](../packages/llm/llm-kiro/src/index.ts)
 
 ```ts config-catalog
 /** Deployment settings for Kiro authorization and inference. */
@@ -4976,6 +4993,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-session-log` | — | [`packages/client/ui-settings-session-log/src/index.ts`](../packages/client/ui-settings-session-log/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-settings-sign-in` | — | [`packages/client/ui-settings-sign-in/src/index.ts`](../packages/client/ui-settings-sign-in/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-subagent` | — | [`packages/client/ui-settings-subagent/src/index.ts`](../packages/client/ui-settings-subagent/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-web-search` | — | [`packages/client/ui-settings-web-search/src/index.ts`](../packages/client/ui-settings-web-search/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-shortcuts` | — | [`packages/client/ui-shortcuts/src/index.ts`](../packages/client/ui-shortcuts/src/index.ts) |
