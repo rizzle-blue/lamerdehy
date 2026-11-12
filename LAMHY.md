@@ -1,16 +1,15 @@
 # Lam Hy
 
-Lam Hy is a fork of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). It ships its own CLI, `lamhy`, which inherits everything `dsh` does, adds capabilities that upstream does not carry, and removes what Lam Hy does not want: telemetry and other outbound data collection, and Chinese documentation.
+Lam Hy is a fork of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It uses the existing `dsh` CLI and profiles and adds model access through Kiro and ChatGPT subscriptions.
 
 Agents working in this checkout read this file before [AGENTS.md](AGENTS.md). Where the two disagree, this file wins for Lam Hy decisions; AGENTS.md still governs code quality, testing, and documentation style.
 
 ## Purpose
 
-- Track upstream DeepSeek Harness closely, so `lamhy` gets upstream features and fixes with little merge work.
+- Track upstream DeepSeek Harness closely to bring in features and fixes with little merge work.
 - Keep fork-owned abilities in fork-owned packages and the `lamhy-base` bundle. The Kiro model provider is the first.
-- Send no data to anyone except the model and tool providers the user configured. This includes anonymous identifiers, crash or usage telemetry, Session-log uploads, and update checks.
-- Ship English-only documentation and UI copy.
-- Give `lamhy` its own state, so it never reads or overwrites `dsh` profiles, settings, credentials, or Session logs.
+- Keep useful diagnostics and usage measurements while protecting personal information and Session content.
+- Ship English-only documentation and use English as the UI fallback.
 
 ## Relationship to upstream
 
@@ -18,7 +17,7 @@ Agents working in this checkout read this file before [AGENTS.md](AGENTS.md). Wh
 | --- | --- |
 | `upstream/master` | `deepseek-ai/deepseek-harness`, the source of truth for `dsh`. |
 | `origin/master` | Pure mirror of `upstream/master`. Never commit fork changes here. |
-| `origin/main` | `origin/master` plus Lam Hy commits. This is the branch `lamhy` is built from. |
+| `origin/main` | `origin/master` plus Lam Hy commits. This is the branch Lam Hy is built from. |
 | `epic/experiment` | Frozen backup of the pre-reset fork work, including the sandbox seam and Tidebloom plans. Read-only reference. |
 
 ### Fork change classes
@@ -37,7 +36,7 @@ Every Lam Hy commit belongs to exactly one class. Name the class in the commit s
 
 Run the [lamhy-sync-upstream](.agents/skills/lamhy-sync-upstream/SKILL.md) skill. It fetches `upstream`, fast-forwards `master`, merges `master` into `main` with a merge commit, resolves conflicts by fork change class, then runs the policy skills in this order:
 
-1. [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md) removes telemetry, analytics, and outbound reporting that upstream added or reintroduced.
+1. [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md) inventories outbound reporting. Apply the [telemetry and privacy policy](#telemetry-and-privacy) to each data path.
 2. [lamhy-english-only](.agents/skills/lamhy-english-only/SKILL.md) deletes new or reintroduced Chinese docs and UI locale data.
 3. [lamhy-rebrand](.agents/skills/lamhy-rebrand/SKILL.md) renames new user-visible "DeepSeek Harness" copy.
 
@@ -49,9 +48,11 @@ These choices were debated before implementation. Each records the rejected alte
 
 ### Rebrand depth: user-visible only
 
-"Lam Hy" replaces "DeepSeek Harness" in prose and product copy: READMEs, docs, UI strings, window titles, and the CLI name. Internal identifiers stay: the `@deepseek-ai/dsh-*` package scope, `DSH_*` environment variables, `dsh.bundle` manifest keys, `$DSH_HOME` internals, Session format names, and wire method names. Renaming those touches more than 6,000 files and turns every sync into a full-tree conflict. The [lamhy-rebrand](.agents/skills/lamhy-rebrand/SKILL.md) skill lists the surfaces that need a user decision before they change, such as the model-visible system-prompt identity and the Desktop application id.
+"LamHy Harness" replaces "DeepSeek Harness" in READMEs, docs, UI strings, and window titles. Internal identifiers stay: the `@deepseek-ai/dsh-*` package scope, `DSH_*` environment variables, `dsh.bundle` manifest keys, `$DSH_HOME` internals, Session format names, and wire method names. Renaming those touches more than 6,000 files and turns every sync into a full-tree conflict. The [lamhy-rebrand](.agents/skills/lamhy-rebrand/SKILL.md) skill lists the surfaces that need a user decision before they change, such as the model-visible system-prompt identity and the Desktop application id.
 
 "DeepSeek" as the name of the model vendor (DeepSeek API, DeepSeek account, `llm-deepseek`) is not the harness brand and does not change. The MIT copyright notice in [LICENSE](LICENSE) stays; Lam Hy may add its own line but never removes upstream's.
+
+The local Desktop shell displays LamHy Harness in its welcome window, application menu, tray, and dialogs. It retains the upstream Electron application ID, packaging product name, and Electron data directory.
 
 ### Fork-owned packages: upstream scope, upstream groups
 
@@ -63,10 +64,9 @@ Each fork package sets `repository.url` to the Lam Hy repository, not to `deepse
 
 `@deepseek-ai/dsh-llm-kiro` at [packages/llm/llm-kiro](packages/llm/llm-kiro/README.md) gives Kiro account model access with AWS device authorization. It is the reference shape for later additions: its own directory, unit tests, a recorded Session snapshot under [snapshots/session/kiro-provider](snapshots/session/kiro-provider/snapshot.yml), and one bundle row.
 
-Two parts of the Kiro commit are not yet in that shape:
+The `llm-kiro` row is in [the base bundle patch](packages/bundle/base/cordis.patch.yml) and its dependency is in `packages/bundle/base/package.json`. Both are slated to move to `lamhy-base`.
 
-- **Registration lives in an upstream file.** The `llm-kiro` row is in [packages/bundle/base/cordis.patch.yml](packages/bundle/base/cordis.patch.yml) and its dependency in `packages/bundle/base/package.json`. Bundle patches can only insert rows and override rows by id, so `lamhy-base` can insert the Kiro row on its own. Move both once `lamhy-base` exists.
-- **An Upstream patch rides along.** The change to `chatViewDefinition.isActive` in `packages/client/ui-chat` opens Chat for visible command rows before the first Turn. Upstream `dsh` users get the same benefit, so propose it upstream and drop the local commit once it lands.
+Lam Hy keeps the `chatViewDefinition.isActive` change locally. It opens Chat when a visible command row exists before the first Turn.
 
 Kiro talks to Kiro and AWS endpoints because the user selected Kiro as a model provider; that traffic is the requested service, not telemetry. The adapter sends `x-amzn-codewhisperer-optout: true` to opt out of CodeWhisperer data use, and the telemetry skill checks that the header stays.
 
@@ -76,11 +76,11 @@ ChatGPT Plus/Pro and Kiro sign in from **Settings → Models → Subscription ac
 
 ChatGPT uses pi-ai's `openai-codex` provider and its OAuth flow, which offers browser login with a pasted-URL fallback and device-code login. pi-ai's "Sign in with ChatGPT" on the `openai` provider stays withheld: it requires a stable installation UUID sent to OpenAI, which the [no-telemetry decision](#outbound-data-delete-do-not-disable) rules out. The base bundle ships the `openai-codex` route with no key; `llm-pi-ai` lists no models for a keyless subscription-only route and fails its requests with `MISSING_CREDENTIAL` until a sign-in is stored, so the picker stays clean for users who never sign in. Traffic to `auth.openai.com` and `chatgpt.com` is the service the user requested. pi-ai sends `originator: pi` with Codex requests; that header is protocol identification, not telemetry.
 
-### Outbound data: delete, do not disable
+<a id="outbound-data-delete-do-not-disable"></a>
 
-Lam Hy deletes telemetry packages and their bundle rows, and the [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md) skill rejects them if a sync brings them back. Disabling through configuration was rejected because a default can flip upstream without a merge conflict, and the user would not notice.
+### Telemetry and privacy
 
-The removal covers OpenTelemetry Session and product telemetry, Desktop product analytics, the anonymous user id, the DeepSeek Session-log upload, Desktop auto-update checks, and the feedback surfaces whose only off-machine use was telemetry. Desktop updates become manual. The removed feedback and Session-log events stay readable in old logs (see the skill for the retired-event declaration).
+Keep local diagnostics, Session statistics, and feedback records that help users understand their work. Review outbound measurements individually for a useful purpose, a known recipient, and a payload that protects personal information. Keep Session content, credentials, account details, private paths, and persistent installation identifiers out of reporting. Remove collection paths that cannot meet these requirements and keep their historical Session events readable.
 
 ### English only, including the UI
 
@@ -90,20 +90,9 @@ Lam Hy deletes Chinese documentation, translation sidecars, translation gates an
 
 Removal and Rebrand commits edit or delete upstream files, which raises merge cost. Lam Hy accepts that cost for these two goals only. The skills keep the cost repeatable: each sync reruns them instead of hand-resolving every conflict. Any other change to an upstream file is either Wiring or an Upstream patch with a plan to propose it back.
 
-## `lamhy` CLI
+## Launch and composition
 
-`lamhy` is `dsh` with Lam Hy defaults. It does not reimplement profile launch, plugin management, or config inspection. It calls the same `runCli()` entry that `apps/cli` exports and accepts the same flags, profiles, and `--patch` overlays.
-
-Target differences from `dsh`:
-
-- **Own home.** State lives in `~/.lamhy`, selected by `LAMHY_HOME`. The launcher maps it to the `DSH_HOME` that upstream code reads. `dsh` keeps using `~/.dsh`.
-- **Own bundle.** A `lamhy-base` bundle layers over `@deepseek-ai/dsh-base` and inserts the fork-owned plugin rows, so the base bundle carries no Lam Hy additions.
-- **Own binary name.** `apps/lamhy/package.json` `bin` exposes `lamhy`. The `dsh` binary is untouched. The new bin needs an entry in [verify-application-entrypoints](scripts/verify-application-entrypoints.ts), whose [application launch rule](docs/architecture.md#application-launch) allows only profile-launching CLIs.
-
-Open questions for the CLI:
-
-- How `lamhy` adds `lamhy-base` to every base-backed profile. Profile bundle lists are owned by `packages/boot/app-boot`; the launcher may need a small, upstream-proposable hook to append a bundle.
-- Whether the Desktop app becomes Lam Hy-branded. A new Electron application id changes the OS data directory and code-signing identity; decide before packaging.
+Lam Hy launches through `dsh` and uses the existing `DSH_HOME` configuration and `~/.dsh` default. The planned `lamhy-base` bundle will layer fork-owned provider configuration over `@deepseek-ai/dsh-base` through the existing profile bundle lists. Subscription sign-in mounts on the Web and Desktop surfaces.
 
 ## Fork-owned packages
 
@@ -121,7 +110,7 @@ Add an ability as a plugin package, then enable it from the `lamhy-base` bundle 
 
 When a hook is missing upstream, prefer a small upstream-compatible change that can be proposed back over a Lam Hy-only patch.
 
-A new package must not send data anywhere except the service the user configured it to call. Run the [lamhy-no-telemetry](.agents/skills/lamhy-no-telemetry/SKILL.md) scan before landing it.
+Before landing a new package, inventory the services it contacts and review any reporting against the [telemetry and privacy policy](#telemetry-and-privacy).
 
 ## Current state
 
@@ -133,10 +122,7 @@ Implemented:
 
 Not yet implemented:
 
-- The first run of each policy skill. `pnpm run verify-lamhy-fork` reports the backlog: about 230 telemetry, 2,790 Chinese-file, and 410 upstream-name violations.
-- The `lamhy` binary and its `apps/lamhy` package.
+- The telemetry privacy audit, removal of Chinese documentation and locale data, and the remaining user-visible rename. `pnpm run verify-lamhy-fork` reports the current backlog.
 - The `lamhy-base` bundle, and moving the Kiro, `openai-codex`, and sign-in rows out of the upstream bundles into it.
-- The `~/.lamhy` home mapping.
-- Proposing the `ui-chat` `isActive` change upstream.
 
 A fresh clone needs `pnpm install` and a build (`pnpm run dev:desktop`, or `pnpm run build:artifacts` before `pnpm start:desktop`) before fork-owned packages are available.
