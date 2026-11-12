@@ -32,10 +32,10 @@ describe('dsh-base bundle', () => {
     )
     expect(rows.length).toBeGreaterThan(50)
     expect(rows.some(row => row.id === 'agent-loop')).toBe(true)
-    expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBeUndefined()
-    expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
-      __jsExpr: "process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
-    })
+    expect(rows.map(row => row.id)).toContain('command-feedback')
+    expect(rows.map(row => row.id)).not.toContain('session-telemetry-otel')
+    expect(rows.map(row => row.id)).not.toContain('session-log-deepseek')
+    expect(rows.map(row => row.id)).not.toContain('plugin-package-inventory-deepseek')
     expect(rows.find(row => row.id === 'hmr')).toMatchObject({
       config: { root: [] },
     })

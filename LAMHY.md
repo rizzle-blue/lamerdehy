@@ -82,6 +82,10 @@ ChatGPT uses pi-ai's `openai-codex` provider and its OAuth flow, which offers br
 
 Keep local diagnostics, Session statistics, and feedback records that help users understand their work. Review outbound measurements individually for a useful purpose, a known recipient, and a payload that protects personal information. Keep Session content, credentials, account details, private paths, and persistent installation identifiers out of reporting. Remove collection paths that cannot meet these requirements and keep their historical Session events readable.
 
+Lam Hy's default profiles omit Session-log uploads, DeepSeek plugin inventory reporting, and Desktop product analytics. DeepSeek model requests omit the `x-deepseek-harness-user-id` and `x-deepseek-harness-session-id` headers because they let the recipient correlate requests by installation or Session. The [Session diagnostics upgrade guide](docs/upgrade-guide/v0.2.2-rc.1/local-session-diagnostics/guide.md) records the affected configuration and adapter options.
+
+If a future feature needs an omitted measurement, identify the specific diagnostic, its recipient, and the fields it needs. Use local diagnostics if they meet the need. Restore only the reporting path that meets the privacy policy above, and preserve the ability to read existing Session records.
+
 ### English only, including the UI
 
 Lam Hy deletes Chinese documentation, translation sidecars, translation gates and tooling, the Chinese website locale, and the Chinese UI locale. Other UI locales (Japanese, Spanish, French, German, Russian, Portuguese) stay, because removing them is a separate decision. Deleting the `zh` baseline locale changes the typed dictionary contract in `packages/client/locale`; the [lamhy-english-only](.agents/skills/lamhy-english-only/SKILL.md) skill covers that change.

@@ -32,10 +32,6 @@
     - id: settlement-fence
       name: './tests/fixtures/subagent-settlement-fence.ts'
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - id: sandbox-policy
   inject: []
   config:

@@ -58,6 +58,3 @@
         provider: claude-secondary
         toolName: subagent_claude_secondary
         maxDepth: provider-managed
-
-- id: plugin-package-inventory-deepseek
-  disabled: true

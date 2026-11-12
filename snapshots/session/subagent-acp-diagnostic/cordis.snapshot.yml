@@ -33,6 +33,3 @@
         provider: acp-diagnostic
         toolName: subagent_acp
         maxDepth: provider-managed
-
-- id: plugin-package-inventory-deepseek
-  disabled: true

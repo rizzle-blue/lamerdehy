@@ -59,10 +59,6 @@
       config:
         maxTokensAsSuccess: true
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - insert:
     - id: await-external-subagents
       name: '../../../packages/test-support/session-snapshot/tests/fixtures/subagent-settlement-barrier.ts'

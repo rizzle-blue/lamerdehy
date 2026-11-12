@@ -47,7 +47,6 @@ describe.skipIf(!existsSync(dshBin))('sdk-minimal durability checkpoints', () =>
     if (address === null || typeof address === 'string') throw new Error('model server has no TCP address')
     const patch = join(root, 'checkpoint.patch.yml')
     await writeFile(patch, JSON.stringify([
-      { id: 'session-log-deepseek', config: { enabled: false } },
       { insert: [{ id: 'checkpoint-failure', name: fixture }] },
       ...disabled ? [{ id: 'session-checkpoint-policy', disabled: true }] : [],
     ]))

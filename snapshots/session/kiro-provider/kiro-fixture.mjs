@@ -195,10 +195,10 @@ async function requestOf(url, input, init) {
   }
 }
 
-/** The bearer token and the harness identity travel on every request, and never across a redirect. */
+/** Kiro requests use the account bearer token and the Kiro client user agent. */
 function checkIdentity(request) {
   same(request.headers.get('authorization'), `Bearer ${ACCESS_TOKEN}`, 'authorization')
-  ensure(request.headers.get('user-agent')?.startsWith('deepseek-harness/') === true, 'user-agent must start with deepseek-harness/')
+  same(request.headers.get('user-agent'), 'omp-kiro-provider/0.2.0', 'user-agent')
   same(request.redirect, 'error', 'redirect')
 }
 
@@ -284,6 +284,7 @@ function createAwsFetch(originalFetch) {
     )
     checkIdentity(request)
     same(request.headers.get('x-amzn-kiro-profile-arn'), PROFILE_ARN, 'x-amzn-kiro-profile-arn')
+    same(request.headers.get('x-amzn-codewhisperer-optout'), 'true', 'x-amzn-codewhisperer-optout')
     same(request.headers.get('accept'), 'application/vnd.amazon.eventstream', 'accept')
     ensure(served < 2, 'the scripted roundtrip has two steps, and a third request arrived')
     ensure(typeof request.body === 'string', 'the request body must be a JSON string')

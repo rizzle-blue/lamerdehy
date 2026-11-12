@@ -28,10 +28,6 @@
         providers:
           - id: deepseek-official
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - id: sandbox-policy
   inject: []
   config:

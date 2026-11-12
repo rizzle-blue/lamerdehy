@@ -37,10 +37,6 @@
     - id: resumed-agent
       name: './tests/fixtures/subagent-inheritance-agent.ts'
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 # The recorded tool catalog includes the optional patch tool.
 - id: tool-fs
   config:

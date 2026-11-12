@@ -13,10 +13,6 @@
     root: !!js dshHomePath('sessions')
     compression: none
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - id: session-title-llm
   disabled: true
 

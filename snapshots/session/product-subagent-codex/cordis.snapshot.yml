@@ -36,6 +36,3 @@
         provider: codex-secondary
         toolName: subagent_codex_secondary
         maxDepth: provider-managed
-
-- id: plugin-package-inventory-deepseek
-  disabled: true

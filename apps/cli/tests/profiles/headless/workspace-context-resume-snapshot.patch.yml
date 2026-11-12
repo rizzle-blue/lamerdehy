@@ -28,10 +28,6 @@
     - id: resumed-agent
       name: './tests/fixtures/workspace-context-resume-agent.ts'
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - id: sandbox-policy
   inject: []
   config:

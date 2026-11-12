@@ -17,10 +17,11 @@
     root: !!js dshHomePath('sessions')
     compression: !!js "process.env.DSH_SNAPSHOT === undefined ? 'zstd' : 'none'"
 
-- id: session-log-deepseek
-  name: '@deepseek-ai/dsh-session-log-deepseek'
-  config:
-    enabled: true
+- insert:
+    - id: session-log-deepseek
+      name: '@deepseek-ai/dsh-session-log-deepseek'
+      config:
+        enabled: true
 
 - insert:
     - id: subagent-dsh-sdk-diagnostic

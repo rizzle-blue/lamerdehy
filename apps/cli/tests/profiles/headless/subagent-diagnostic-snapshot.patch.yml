@@ -27,10 +27,6 @@
     - id: resumed-agent
       name: './tests/fixtures/subagent-diagnostic-agent.ts'
 
-- id: session-log-deepseek
-  config:
-    enabled: false
-
 - id: sandbox-policy
   inject: []
   config:
